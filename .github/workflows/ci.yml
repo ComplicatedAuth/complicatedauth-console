@@ -1,0 +1,72 @@
+name: Console CI
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Dokosoko/complicatedauth-openapi
+          path: _contract
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - run: npm ci
+      - run: OPENAPI_SPEC="$GITHUB_WORKSPACE/_contract/openapi.yaml" npm run generate:api
+      - run: git diff --exit-code -- lib/schema.d.ts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env: {POSTGRES_USER: complicatedauth, POSTGRES_PASSWORD: complicatedauth, POSTGRES_DB: complicatedauth}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U complicatedauth" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Dokosoko/complicatedauth-backend
+          path: _backend
+      - uses: actions/setup-node@v4
+        with: {node-version: 22, cache: npm}
+      - uses: actions/setup-go@v5
+        with: {go-version: '1.25.x', cache-dependency-path: _backend/go.sum}
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start backend
+        working-directory: _backend
+        env:
+          DATABASE_URL: postgres://complicatedauth:complicatedauth@localhost:5432/complicatedauth?sslmode=disable
+          CONSOLE_ORIGIN: http://localhost:3000
+          COOKIE_SECURE: 'false'
+          SECRET_HASH_KEY: BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc
+          LISTEN_ADDRESS: 127.0.0.1:8080
+        run: nohup go run ./cmd/server >/tmp/complicatedauth-backend.log 2>&1 &
+      - name: Start console
+        env:
+          INTERNAL_API_URL: http://127.0.0.1:8080
+        run: nohup npm run dev >/tmp/complicatedauth-console.log 2>&1 &
+      - name: Wait for services
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:8080/health/ready >/dev/null && curl --fail --silent http://localhost:3000/signup >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/complicatedauth-backend.log /tmp/complicatedauth-console.log
+          exit 1
+      - run: npm run test:e2e
+        env:
+          BACKEND_URL: http://127.0.0.1:8080
+          CONSOLE_URL: http://localhost:3000
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results
