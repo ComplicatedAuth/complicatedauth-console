@@ -823,8 +823,9 @@ function SecretDialog({
     setCopied(false);
     close();
   }
+  if (!secret) return null;
   return (
-    <Dialog open={secret !== null} onClose={handleClose} size="lg">
+    <Dialog open onClose={handleClose} size="lg">
       <DialogTitle>Copy this API key now</DialogTitle>
       <DialogDescription>
         This one-time secret will never be shown again. Save it in a server-side
@@ -838,10 +839,9 @@ function SecretDialog({
           <Button
             color={copied ? "green" : "coral"}
             onClick={() => {
-              if (secret)
-                navigator.clipboard
-                  .writeText(secret.secret)
-                  .catch(() => undefined);
+              navigator.clipboard
+                .writeText(secret.secret)
+                .catch(() => undefined);
               setCopied(true);
             }}
           >

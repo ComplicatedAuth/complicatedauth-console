@@ -62,6 +62,9 @@ test("complete console and RP password/passkey flow", async ({
   await expect(page.locator(".secret-value code")).toHaveText(apiKey);
   expect(apiKey).toMatch(/^ca_pk_/);
   await page.getByRole("button", { name: "I have saved the key" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Copy this API key now" }),
+  ).toBeHidden();
 
   await page.getByRole("link", { name: "Users" }).click();
   await page.getByLabel("Email address").fill(userEmail);
@@ -117,14 +120,14 @@ test("complete console and RP password/passkey flow", async ({
   await page.goto("http://localhost:4174");
   await page.getByRole("button", { name: "Password login" }).click();
   await expect(page.getByTestId("status")).toHaveText(
-    "Password session active",
+    "Password factor verified",
   );
   await page.getByRole("button", { name: "Register passkey" }).click();
   await expect(page.getByTestId("status")).toHaveText("Passkey registered");
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByTestId("status")).toHaveText("Logged out");
   await page.getByRole("button", { name: "Passkey login" }).click();
-  await expect(page.getByTestId("status")).toHaveText("Passkey session active");
+  await expect(page.getByTestId("status")).toHaveText("Password + passkey session active");
   const rpSession = await page.request.get("http://localhost:4174/session");
   expect((await rpSession.json()).session_reference).toBeUndefined();
 

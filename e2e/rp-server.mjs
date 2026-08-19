@@ -6,6 +6,7 @@ const projectUID = process.env.PROJECT_UID;
 const apiKey = process.env.PROJECT_API_KEY;
 const port = Number(process.env.RP_PORT ?? 4174);
 const sessions = new Map();
+const logins = new Map();
 
 if (!projectUID || !apiKey)
   throw new Error("PROJECT_UID and PROJECT_API_KEY are required");
@@ -26,10 +27,10 @@ const options = value => { value.challenge=bytes(value.challenge); if(value.user
 const credentialJSON = credential => { const response={clientDataJSON:base64url(credential.response.clientDataJSON)}; if('attestationObject' in credential.response){response.attestationObject=base64url(credential.response.attestationObject);response.transports=credential.response.getTransports?.()??[];}else{response.authenticatorData=base64url(credential.response.authenticatorData);response.signature=base64url(credential.response.signature);if(credential.response.userHandle)response.userHandle=base64url(credential.response.userHandle);} return {id:credential.id,rawId:base64url(credential.rawId),type:credential.type,authenticatorAttachment:credential.authenticatorAttachment,clientExtensionResults:credential.getClientExtensionResults(),response}; };
 async function call(path, body){const response=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const value=await response.json().catch(()=>({}));if(!response.ok)throw new Error(value.error?.message??'Request failed');return value;}
 async function action(work){try{status.value='Working…';status.textContent='Working…';const message=await work();status.value=message;status.textContent=message;}catch(error){status.value='Error: '+error.message;status.textContent='Error: '+error.message;}}
-document.querySelector('#password-login').onclick=()=>action(async()=>{await call('/password',{email:email.value,password:password.value});return 'Password session active';});
+document.querySelector('#password-login').onclick=()=>action(async()=>{await call('/password',{email:email.value,password:password.value});return 'Password factor verified';});
 document.querySelector('#register').onclick=()=>action(async()=>{const begin=await call('/register/options');const credential=await navigator.credentials.create({publicKey:options(begin.public_key)});await call('/register/verify',{ceremony_uid:begin.ceremony_uid,credential:credentialJSON(credential)});return 'Passkey registered';});
 document.querySelector('#logout').onclick=()=>action(async()=>{await call('/logout');return 'Logged out';});
-document.querySelector('#passkey-login').onclick=()=>action(async()=>{const begin=await call('/authenticate/options',{});const credential=await navigator.credentials.get({publicKey:options(begin.public_key)});await call('/authenticate/verify',{ceremony_uid:begin.ceremony_uid,credential:credentialJSON(credential)});return 'Passkey session active';});
+document.querySelector('#passkey-login').onclick=()=>action(async()=>{await call('/password',{email:email.value,password:password.value});const begin=await call('/authenticate/options',{});const credential=await navigator.credentials.get({publicKey:options(begin.public_key)});await call('/authenticate/verify',{ceremony_uid:begin.ceremony_uid,credential:credentialJSON(credential)});return 'Password + passkey session active';});
 </script></html>`;
 
 function cookie(request, name) {
@@ -47,12 +48,13 @@ async function jsonBody(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-async function complicatedAuth(path, body, sessionReference = "") {
+async function complicatedAuth(path, body, {loginReference = "", sessionReference = ""} = {}) {
   const headers = {
     Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
   if (sessionReference) headers["X-ComplicatedAuth-Session"] = sessionReference;
+  if (loginReference) headers["X-ComplicatedAuth-Login"] = loginReference;
   const response = await fetch(
     `${backendURL}/v1/projects/${projectUID}/runtime${path}`,
     {
@@ -83,6 +85,10 @@ function activeReference(request) {
   return sessions.get(cookie(request, "rp_session")) ?? "";
 }
 
+function activeLogin(request) {
+  return logins.get(cookie(request, "rp_login")) ?? "";
+}
+
 const server = createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/") {
@@ -107,53 +113,66 @@ const server = createServer(async (request, response) => {
       return send(response, 404, { error: { message: "Not found" } });
     const body = await jsonBody(request);
     if (request.url === "/password") {
-      const value = await complicatedAuth("/password/authenticate", body);
+      const start = await complicatedAuth("/login/start", {email: body.email});
+      await complicatedAuth("/login/password", {password: body.password}, {loginReference: start.login_reference});
       const id = randomUUID();
-      sessions.set(id, value.session_reference);
+      logins.set(id, start.login_reference);
       return send(
         response,
         200,
-        { project_user: value.project_user, expires_at: value.expires_at },
-        { "Set-Cookie": `rp_session=${id}; HttpOnly; SameSite=Lax; Path=/` },
+        { status: "factor_verified" },
+        { "Set-Cookie": `rp_login=${id}; HttpOnly; SameSite=Lax; Path=/` },
       );
     }
     if (
       request.url === "/register/options" ||
       request.url === "/register/verify"
     ) {
-      const reference = activeReference(request);
-      if (!reference)
-        return send(response, 401, { error: { message: "No RP session" } });
+      const loginReference = activeLogin(request);
+      if (!loginReference)
+        return send(response, 401, { error: { message: "No active login" } });
       const suffix =
         request.url === "/register/options"
-          ? "/passkeys/registration/options"
-          : "/passkeys/registration/verify";
-      return send(
-        response,
-        request.url.endsWith("verify") ? 201 : 200,
-        await complicatedAuth(suffix, body, reference),
-      );
+          ? "/login/fido/enrollment/options"
+          : "/login/fido/enrollment/verify";
+      const value = await complicatedAuth(suffix, {...body, mode: "passkey"}, {loginReference});
+      if (request.url.endsWith("options")) return send(response, 200, value);
+      const oldLogin = cookie(request, "rp_login");
+      logins.delete(oldLogin);
+      const id = randomUUID();
+      sessions.set(id, value.session_reference);
+      return send(response, 200, {project_user: value.project_user, expires_at: value.expires_at}, {
+        "Set-Cookie": [`rp_session=${id}; HttpOnly; SameSite=Lax; Path=/`, "rp_login=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"],
+      });
     }
-    if (request.url === "/authenticate/options")
+    if (request.url === "/authenticate/options") {
+      const loginReference = activeLogin(request);
+      if (!loginReference) return send(response, 401, {error: {message: "No active login"}});
       return send(
         response,
         200,
-        await complicatedAuth("/passkeys/authentication/options", body),
+        await complicatedAuth("/login/fido/options", {mode: "passkey"}, {loginReference}),
       );
+    }
     if (request.url === "/authenticate/verify") {
+      const loginId = cookie(request, "rp_login");
+      const loginReference = logins.get(loginId) ?? "";
+      if (!loginReference) return send(response, 401, {error: {message: "No active login"}});
       const value = await complicatedAuth(
-        "/passkeys/authentication/verify",
-        body,
+        "/login/fido/verify",
+        {...body, mode: "passkey"},
+        {loginReference},
       );
       const old = cookie(request, "rp_session");
       if (old) sessions.delete(old);
+      logins.delete(loginId);
       const id = randomUUID();
       sessions.set(id, value.session_reference);
       return send(
         response,
         200,
         { project_user: value.project_user, expires_at: value.expires_at },
-        { "Set-Cookie": `rp_session=${id}; HttpOnly; SameSite=Lax; Path=/` },
+        { "Set-Cookie": [`rp_session=${id}; HttpOnly; SameSite=Lax; Path=/`, "rp_login=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"] },
       );
     }
     if (request.url === "/logout") {
@@ -164,13 +183,17 @@ const server = createServer(async (request, response) => {
           session_reference: reference,
         });
       sessions.delete(id);
+      const loginId = cookie(request, "rp_login");
+      logins.delete(loginId);
       return send(
         response,
         200,
         { logged_out: true },
         {
-          "Set-Cookie":
+          "Set-Cookie": [
             "rp_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+            "rp_login=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0",
+          ],
         },
       );
     }

@@ -11,6 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Check whether the API process is running
+         * @description Returns success when the HTTP process can serve requests. This probe does not check PostgreSQL or external providers.
+         */
         get: operations["live"];
         put?: never;
         post?: never;
@@ -27,6 +31,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Check whether the API and database are ready
+         * @description Returns success only when the API can reach its required database dependency; use it for traffic readiness.
+         */
         get: operations["ready"];
         put?: never;
         post?: never;
@@ -45,6 +53,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Create a Tenant and its owner
+         * @description Atomically creates a Tenant, its first owner Tenant Member, and an authenticated console session. The response sets the HttpOnly console cookie.
+         */
         post: operations["signup"];
         delete?: never;
         options?: never;
@@ -61,6 +73,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Sign in a Tenant Member
+         * @description Verifies management-console credentials and starts an HttpOnly console session. Repeated failures are rate limited.
+         */
         post: operations["login"];
         delete?: never;
         options?: never;
@@ -77,6 +93,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Sign out a Tenant Member
+         * @description Revokes the current console session and clears its cookie. State-changing console requests must include the browser Origin header.
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -91,6 +111,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * Get the current console session
+         * @description Returns the authenticated Tenant and Tenant Member represented by the console cookie.
+         */
         get: operations["getConsoleSession"];
         put?: never;
         post?: never;
@@ -107,8 +131,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List Projects
+         * @description Lists the Projects visible to the current Tenant Member using opaque cursor pagination.
+         */
         get: operations["listProjects"];
         put?: never;
+        /**
+         * Create a Project
+         * @description Creates an isolated authentication boundary with its relying-party identity and first exact allowed origin.
+         */
         post: operations["createProject"];
         delete?: never;
         options?: never;
@@ -121,16 +153,25 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
+        /**
+         * Get a Project
+         * @description Returns Project configuration and current aggregate counts for the authenticated Tenant.
+         */
         get: operations["getProject"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update a Project
+         * @description Updates supplied Project fields. The RP ID cannot change after the first FIDO credential has been registered.
+         */
         patch: operations["updateProject"];
         trace?: never;
     };
@@ -139,12 +180,21 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
+        /**
+         * List allowed origins
+         * @description Lists the exact browser origins accepted for WebAuthn ceremonies in this Project.
+         */
         get: operations["listOrigins"];
         put?: never;
+        /**
+         * Add an allowed origin
+         * @description Adds an exact HTTPS origin, or an HTTP localhost origin for development, to the Project allowlist.
+         */
         post: operations["createOrigin"];
         delete?: never;
         options?: never;
@@ -157,7 +207,9 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Allowed-origin identifier inside the Project. */
                 origin_uid: components["parameters"]["OriginUid"];
             };
             cookie?: never;
@@ -165,6 +217,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * Remove an allowed origin
+         * @description Removes an origin from the Project. The final remaining origin cannot be deleted.
+         */
         delete: operations["deleteOrigin"];
         options?: never;
         head?: never;
@@ -176,12 +232,21 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
+        /**
+         * List Project API keys
+         * @description Lists key metadata and prefixes without returning any reusable secret value.
+         */
         get: operations["listApiKeys"];
         put?: never;
+        /**
+         * Create a Project API key
+         * @description Creates a backend credential and returns its secret exactly once. Store the secret in a server-side secret manager.
+         */
         post: operations["createApiKey"];
         delete?: never;
         options?: never;
@@ -194,7 +259,9 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project API key identifier. */
                 key_uid: components["parameters"]["KeyUid"];
             };
             cookie?: never;
@@ -202,9 +269,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * Revoke a Project API key
+         * @description Permanently invalidates the key for all future runtime requests.
+         */
         delete: operations["revokeApiKey"];
         options?: never;
         head?: never;
+        /**
+         * Rename a Project API key
+         * @description Changes the human-readable key name without changing its credential material.
+         */
         patch: operations["renameApiKey"];
         trace?: never;
     };
@@ -213,13 +288,19 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project API key identifier. */
                 key_uid: components["parameters"]["KeyUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * Rotate a Project API key
+         * @description Invalidates the current secret and returns a replacement secret exactly once.
+         */
         post: operations["rotateApiKey"];
         delete?: never;
         options?: never;
@@ -232,12 +313,21 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
+        /**
+         * List Project Users
+         * @description Lists application identities in one Project. Either a console session or that Project's API key may authorize the request.
+         */
         get: operations["listProjectUsers"];
         put?: never;
+        /**
+         * Create a Project User
+         * @description Provisions an identity scoped to this Project. The same email address may represent a different identity in another Project.
+         */
         post: operations["createProjectUser"];
         delete?: never;
         options?: never;
@@ -250,17 +340,27 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
         };
+        /**
+         * Get a Project User
+         * @description Returns account state and the metadata for enrolled passkeys or security keys, never credential secrets.
+         */
         get: operations["getProjectUser"];
         put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
+        /**
+         * Update a Project User
+         * @description Updates supplied identity, verification, or lifecycle fields inside this Project.
+         */
         patch: operations["updateProjectUser"];
         trace?: never;
     };
@@ -269,12 +369,18 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
         };
         get?: never;
+        /**
+         * Replace a Project User password
+         * @description Sets a new password and revokes every active session for the Project User.
+         */
         put: operations["replaceProjectUserPassword"];
         post?: never;
         delete?: never;
@@ -288,13 +394,19 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * Revoke all Project User sessions
+         * @description Invalidates all active session references for the selected Project User.
+         */
         post: operations["revokeProjectUserSessions"];
         delete?: never;
         options?: never;
@@ -307,8 +419,11 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
+                /** @description Enrolled FIDO credential identifier. */
                 credential_uid: components["parameters"]["CredentialUid"];
             };
             cookie?: never;
@@ -316,6 +431,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
+        /**
+         * Remove a Project User FIDO credential
+         * @description Deletes the selected passkey or security key. A previously locked Project RP ID remains locked.
+         */
         delete: operations["deletePasskey"];
         options?: never;
         head?: never;
@@ -327,10 +446,15 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
+        /**
+         * List Project activity
+         * @description Returns security audit events scoped to one Project using opaque cursor pagination.
+         */
         get: operations["listProjectActivity"];
         put?: never;
         post?: never;
@@ -347,6 +471,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /**
+         * List Tenant activity
+         * @description Returns security audit events across the authenticated Tenant using opaque cursor pagination.
+         */
         get: operations["listTenantActivity"];
         put?: never;
         post?: never;
@@ -356,95 +484,262 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/runtime/password/authenticate": {
+    "/v1/projects/{project_uid}/runtime/login/start": {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["authenticateProjectUserPassword"];
+        /**
+         * Start a Project User login
+         * @description Creates a short-lived, non-enumerating login attempt and returns an opaque reference for subsequent factor checks.
+         */
+        post: operations["startProjectUserLogin"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/runtime/passkeys/registration/options": {
+    "/v1/projects/{project_uid}/runtime/login/password": {
         parameters: {
             query?: never;
             header: {
-                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["beginPasskeyRegistration"];
+        /**
+         * Verify the password factor
+         * @description Verifies the password against the referenced login attempt without issuing a session. A second factor or first-FIDO enrollment must follow.
+         */
+        post: operations["verifyProjectUserLoginPassword"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/runtime/passkeys/registration/verify": {
+    "/v1/projects/{project_uid}/runtime/login/fido/options": {
         parameters: {
             query?: never;
             header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin FIDO login
+         * @description Starts a WebAuthn assertion ceremony for a password-verified login attempt and requested FIDO mode.
+         */
+        post: operations["beginProjectUserFidoLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/runtime/login/fido/verify": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish FIDO login
+         * @description Verifies the browser assertion for the referenced ceremony and returns an opaque Project User session reference.
+         */
+        post: operations["finishProjectUserFidoLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/runtime/login/fido/enrollment/options": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Begin first-factor enrollment after password verification
+         * @description Starts the one permitted bootstrap registration when the password-verified Project User has no FIDO credentials.
+         */
+        post: operations["beginFirstFidoEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/runtime/login/fido/enrollment/verify": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enroll the first FIDO credential and complete login
+         * @description Verifies the bootstrap registration, permanently locks the Project RP ID, stores the credential, and issues a session reference.
+         */
+        post: operations["finishFirstFidoEnrollment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/runtime/login/biometric": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a biometric login factor
+         * @description Sends a selfie to the configured biometric provider for a password-verified login attempt and returns a session reference on a successful match.
+         */
+        post: operations["verifyProjectUserBiometricLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/runtime/fido/registration/options": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
                 "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["finishPasskeyRegistration"];
+        /**
+         * Begin additional FIDO enrollment
+         * @description Starts a WebAuthn registration ceremony for an already authenticated Project User session.
+         */
+        post: operations["beginFidoEnrollment"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/runtime/passkeys/authentication/options": {
+    "/v1/projects/{project_uid}/runtime/fido/registration/verify": {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+            };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["beginPasskeyAuthentication"];
+        /**
+         * Finish additional FIDO enrollment
+         * @description Verifies and stores a passkey or security key created by the referenced registration ceremony.
+         */
+        post: operations["finishFidoEnrollment"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/runtime/passkeys/authentication/verify": {
+    "/v1/projects/{project_uid}/runtime/biometric/enrollment": {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+            };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["finishPasskeyAuthentication"];
-        delete?: never;
+        /**
+         * Create or replace biometric enrollment
+         * @description Enrolls the submitted selfie with the configured provider for the authenticated Project User session.
+         */
+        post: operations["enrollProjectUserBiometric"];
+        /**
+         * Delete biometric enrollment
+         * @description Removes the external biometric subject and local enrollment metadata for the authenticated Project User session.
+         */
+        delete: operations["deleteProjectUserBiometric"];
         options?: never;
         head?: never;
         patch?: never;
@@ -455,12 +750,17 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * Introspect a Project User session
+         * @description Validates an opaque session reference and returns the current Project User and expiry for backend authorization.
+         */
         post: operations["introspectProjectUserSession"];
         delete?: never;
         options?: never;
@@ -473,12 +773,17 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
+        /**
+         * Revoke a Project User session
+         * @description Invalidates one opaque session reference, such as during relying-party logout.
+         */
         post: operations["revokeProjectUserSession"];
         delete?: never;
         options?: never;
@@ -490,10 +795,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** Format: uuid */
+        /**
+         * Format: uuid
+         * @description RFC 4122 universally unique identifier.
+         */
         Uuid: string;
-        /** Format: date-time */
+        /**
+         * Format: date-time
+         * @description UTC timestamp serialized in RFC 3339 date-time form.
+         */
         Timestamp: string;
+        /** @description Stable machine-readable error code, safe message, optional details, and request correlation identifier. */
         ErrorEnvelope: {
             error: {
                 code: string;
@@ -504,6 +816,7 @@ export interface components {
                 request_id: string;
             };
         };
+        /** @description Tenant and first-owner fields accepted during management-console signup. */
         SignupRequest: {
             /** Format: email */
             email: string;
@@ -511,16 +824,19 @@ export interface components {
             display_name: string;
             tenant_name: string;
         };
+        /** @description Tenant Member credentials accepted by management-console login. */
         LoginRequest: {
             /** Format: email */
             email: string;
             password: string;
         };
+        /** @description Administrative owner boundary for Projects and Tenant Members. */
         Tenant: {
             uid: components["schemas"]["Uuid"];
             name: string;
             slug: string;
         };
+        /** @description Human administrator authenticated to the management console. */
         TenantMember: {
             uid: components["schemas"]["Uuid"];
             /** Format: email */
@@ -529,11 +845,13 @@ export interface components {
             /** @enum {string} */
             role: "owner";
         };
+        /** @description Authenticated management-console context returned after signup, login, or session discovery. */
         ConsoleSession: {
             tenant: components["schemas"]["Tenant"];
             member: components["schemas"]["TenantMember"];
             expires_at: components["schemas"]["Timestamp"];
         };
+        /** @description Complete configuration required to create an isolated Project and its first allowed origin. */
         CreateProjectRequest: {
             name: string;
             /** @enum {string} */
@@ -543,6 +861,7 @@ export interface components {
             /** Format: uri */
             initial_origin: string;
         };
+        /** @description Partial Project configuration update; omitted fields remain unchanged. */
         UpdateProjectRequest: {
             name?: string;
             /** @enum {string} */
@@ -552,6 +871,7 @@ export interface components {
             rp_id?: string;
             rp_name?: string;
         };
+        /** @description Isolated relying-party authentication boundary and its current aggregate counts. */
         Project: {
             uid: components["schemas"]["Uuid"];
             name: string;
@@ -568,23 +888,28 @@ export interface components {
             api_key_count: number;
             created_at: components["schemas"]["Timestamp"];
         };
+        /** @description Cursor-paginated collection of Projects. */
         ProjectPage: {
             items: components["schemas"]["Project"][];
             next_cursor?: string | null;
         };
+        /** @description Exact browser origin to add to a Project allowlist. */
         CreateOriginRequest: {
             /** Format: uri */
             origin: string;
         };
+        /** @description Exact browser origin permitted to perform ceremonies for a Project. */
         Origin: {
             uid: components["schemas"]["Uuid"];
             /** Format: uri */
             origin: string;
             created_at: components["schemas"]["Timestamp"];
         };
+        /** @description Human-readable name used when creating or renaming a Project API key. */
         NameRequest: {
             name: string;
         };
+        /** @description Project API key metadata that is safe to list; it never contains a reusable secret. */
         ApiKey: {
             uid: components["schemas"]["Uuid"];
             name: string;
@@ -597,9 +922,11 @@ export interface components {
             /** Format: date-time */
             revoked_at?: string | null;
         };
+        /** @description Project API key metadata plus the one-time secret returned only at creation or rotation. */
         ApiKeySecret: components["schemas"]["ApiKey"] & {
             secret: string;
         };
+        /** @description Fields used to provision a Project-scoped application identity. */
         CreateProjectUserRequest: {
             /** Format: email */
             email: string;
@@ -607,6 +934,7 @@ export interface components {
             email_verified: boolean;
             password?: string;
         };
+        /** @description Partial Project User update; omitted fields remain unchanged. */
         UpdateProjectUserRequest: {
             /** Format: email */
             email?: string;
@@ -614,9 +942,11 @@ export interface components {
             /** @enum {string} */
             status?: "active" | "disabled";
         };
+        /** @description Password value used for replacement or login-factor verification. */
         PasswordRequest: {
             password: string;
         };
+        /** @description Application identity scoped to exactly one Project, with optional credential detail. */
         ProjectUser: {
             uid: components["schemas"]["Uuid"];
             /** Format: email */
@@ -625,42 +955,98 @@ export interface components {
             /** @enum {string} */
             status: "active" | "disabled";
             passkey_count: number;
+            /** @description Present on the project-user detail response. */
+            passkeys?: components["schemas"]["Passkey"][];
             created_at: components["schemas"]["Timestamp"];
         };
+        /** @description Cursor-paginated collection of Project Users. */
         ProjectUserPage: {
             items: components["schemas"]["ProjectUser"][];
             next_cursor?: string | null;
         };
-        RuntimePasswordRequest: components["schemas"]["LoginRequest"];
+        /** @description Email lookup used to create a deliberately non-enumerating login attempt. */
+        StartLoginRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /** @description Short-lived opaque reference that binds all factor checks in one login attempt. */
+        LoginAttemptSecret: {
+            login_reference: string;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Confirmation that the password factor succeeded and the login attempt can continue. */
+        FactorVerified: {
+            /** @enum {string} */
+            status: "factor_verified";
+            /** @enum {string} */
+            factor: "password";
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Requested FIDO authenticator category for an assertion ceremony. */
+        FidoModeRequest: {
+            /** @enum {string} */
+            mode: "passkey" | "security_key" | "hybrid";
+        };
+        /** @description Requested FIDO credential category for a registration ceremony. */
+        FidoEnrollmentModeRequest: {
+            /** @enum {string} */
+            mode: "passkey" | "security_key";
+        };
+        /** @description Browser WebAuthn result plus the FIDO mode selected when the ceremony began. */
+        FidoFinishRequest: components["schemas"]["WebAuthnFinishRequest"] & components["schemas"]["FidoModeRequest"];
+        /** @description Multipart selfie image forwarded to the configured biometric provider. */
+        SelfieRequest: {
+            /** Format: binary */
+            selfie: string;
+        };
+        /** @description Opaque session reference and Project User context returned only after complete authentication. */
         ProjectUserSessionSecret: {
             session_reference: string;
             expires_at: components["schemas"]["Timestamp"];
             project_user: components["schemas"]["ProjectUser"];
         };
+        /** @description Opaque Project User session reference submitted by a relying-party backend. */
         SessionReferenceRequest: {
             session_reference: string;
         };
+        /** @description Introspection result for an active Project User session. */
         ProjectUserSession: {
             active: boolean;
             expires_at: components["schemas"]["Timestamp"];
             project_user: components["schemas"]["ProjectUser"];
         };
+        /** @description Server ceremony identifier and browser-compatible PublicKeyCredential options. */
         WebAuthnOptions: {
             ceremony_uid: components["schemas"]["Uuid"];
             public_key: {
                 [key: string]: unknown;
             };
         };
+        /** @description Server ceremony identifier and browser-produced PublicKeyCredential result. */
         WebAuthnFinishRequest: {
             ceremony_uid: components["schemas"]["Uuid"];
             credential: {
                 [key: string]: unknown;
             };
         };
+        /** @description Minimal enrolled FIDO credential metadata exposed on Project User detail. */
         Passkey: {
             uid: components["schemas"]["Uuid"];
             created_at: components["schemas"]["Timestamp"];
         };
+        /** @description Newly registered passkey or attested security-key metadata. */
+        FidoCredential: {
+            uid: components["schemas"]["Uuid"];
+            /** @enum {string} */
+            kind: "passkey" | "security_key";
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Local metadata for the Project User's active biometric-provider enrollment. */
+        BiometricEnrollment: {
+            uid: components["schemas"]["Uuid"];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Immutable security-relevant action with actor, optional target, metadata, and timestamp. */
         AuditEvent: {
             uid: components["schemas"]["Uuid"];
             action: string;
@@ -676,13 +1062,14 @@ export interface components {
             };
             created_at: components["schemas"]["Timestamp"];
         };
+        /** @description Cursor-paginated collection of audit events. */
         AuditPage: {
             items: components["schemas"]["AuditEvent"][];
             next_cursor?: string | null;
         };
     };
     responses: {
-        /** @description Request failed */
+        /** @description Request failed with a stable error code and request correlation identifier. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -693,18 +1080,30 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
         Origin: string;
+        /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
         Cursor: string;
+        /** @description Maximum number of records to return. */
         Limit: number;
+        /** @description Project authentication-boundary identifier. */
         ProjectUid: components["schemas"]["Uuid"];
+        /** @description Allowed-origin identifier inside the Project. */
         OriginUid: components["schemas"]["Uuid"];
+        /** @description Project API key identifier. */
         KeyUid: components["schemas"]["Uuid"];
+        /** @description Project User identifier inside the Project. */
         UserUid: components["schemas"]["Uuid"];
+        /** @description Enrolled FIDO credential identifier. */
         CredentialUid: components["schemas"]["Uuid"];
+        /** @description Opaque Project User session reference held only by the relying-party backend. */
         ProjectSession: string;
+        /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+        ProjectLogin: string;
     };
     requestBodies: never;
     headers: {
+        /** @description HttpOnly console session cookie. Production deployments also set Secure and SameSite attributes. */
         SetCookie: string;
     };
     pathItems: never;
@@ -752,6 +1151,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path?: never;
@@ -781,6 +1181,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path?: never;
@@ -810,6 +1211,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path?: never;
@@ -851,7 +1253,9 @@ export interface operations {
     listProjects: {
         parameters: {
             query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
                 limit?: components["parameters"]["Limit"];
             };
             header?: never;
@@ -876,6 +1280,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path?: never;
@@ -904,6 +1309,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -926,9 +1332,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -957,6 +1365,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -980,9 +1389,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1010,10 +1421,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Allowed-origin identifier inside the Project. */
                 origin_uid: components["parameters"]["OriginUid"];
             };
             cookie?: never;
@@ -1036,6 +1450,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1059,9 +1474,11 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1088,10 +1505,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project API key identifier. */
                 key_uid: components["parameters"]["KeyUid"];
             };
             cookie?: never;
@@ -1111,10 +1531,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project API key identifier. */
                 key_uid: components["parameters"]["KeyUid"];
             };
             cookie?: never;
@@ -1140,10 +1563,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project API key identifier. */
                 key_uid: components["parameters"]["KeyUid"];
             };
             cookie?: never;
@@ -1165,11 +1591,14 @@ export interface operations {
     listProjectUsers: {
         parameters: {
             query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
                 limit?: components["parameters"]["Limit"];
             };
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1192,6 +1621,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1219,14 +1649,16 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description User */
+            /** @description User with enrolled passkeys */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1241,10 +1673,13 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
                 Origin?: components["parameters"]["Origin"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
@@ -1271,7 +1706,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
@@ -1297,7 +1734,9 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
             };
             cookie?: never;
@@ -1318,8 +1757,11 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
+                /** @description Project User identifier inside the Project. */
                 user_uid: components["parameters"]["UserUid"];
+                /** @description Enrolled FIDO credential identifier. */
                 credential_uid: components["parameters"]["CredentialUid"];
             };
             cookie?: never;
@@ -1338,11 +1780,14 @@ export interface operations {
     listProjectActivity: {
         parameters: {
             query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
                 limit?: components["parameters"]["Limit"];
             };
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1363,7 +1808,9 @@ export interface operations {
     listTenantActivity: {
         parameters: {
             query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
                 limit?: components["parameters"]["Limit"];
             };
             header?: never;
@@ -1383,25 +1830,118 @@ export interface operations {
             };
         };
     };
-    authenticateProjectUserPassword: {
+    startProjectUserLogin: {
         parameters: {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RuntimePasswordRequest"];
+                "application/json": components["schemas"]["StartLoginRequest"];
             };
         };
         responses: {
-            /** @description One-time session reference */
-            200: {
+            /** @description Non-enumerating login attempt */
+            201: {
                 headers: {
                     "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginAttemptSecret"];
+                };
+            };
+            429: components["responses"]["Error"];
+        };
+    };
+    verifyProjectUserLoginPassword: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password factor verified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactorVerified"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    beginProjectUserFidoLogin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Ceremony and browser options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnOptions"];
+                };
+            };
+        };
+    };
+    finishProjectUserFidoLogin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description Authenticated session reference */
+            200: {
+                headers: {
                     [name: string]: unknown;
                 };
                 content: {
@@ -1411,111 +1951,213 @@ export interface operations {
             401: components["responses"]["Error"];
         };
     };
-    beginPasskeyRegistration: {
+    beginFirstFidoEnrollment: {
         parameters: {
             query?: never;
             header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoEnrollmentModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Ceremony and browser registration options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnOptions"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    finishFirstFidoEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description Credential enrolled and authenticated session reference issued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectUserSessionSecret"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    verifyProjectUserBiometricLogin: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque, short-lived login-attempt reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Login": components["parameters"]["ProjectLogin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["SelfieRequest"];
+            };
+        };
+        responses: {
+            /** @description Authenticated session reference */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectUserSessionSecret"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    beginFidoEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
                 "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
             };
             path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoEnrollmentModeRequest"];
+            };
+        };
+        responses: {
+            /** @description Ceremony and browser options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnOptions"];
+                };
+            };
+        };
+    };
+    finishFidoEnrollment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FidoFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description Registered credential */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FidoCredential"];
+                };
+            };
+        };
+    };
+    enrollProjectUserBiometric: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["SelfieRequest"];
+            };
+        };
+        responses: {
+            /** @description Facial enrollment created or replaced */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BiometricEnrollment"];
+                };
+            };
+        };
+    };
+    deleteProjectUserBiometric: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Opaque Project User session reference held only by the relying-party backend. */
+                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Ceremony and browser options */
-            200: {
+            /** @description Facial enrollment removed */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["WebAuthnOptions"];
-                };
-            };
-        };
-    };
-    finishPasskeyRegistration: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-ComplicatedAuth-Session": components["parameters"]["ProjectSession"];
-            };
-            path: {
-                project_uid: components["parameters"]["ProjectUid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAuthnFinishRequest"];
-            };
-        };
-        responses: {
-            /** @description Registered passkey */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Passkey"];
-                };
-            };
-        };
-    };
-    beginPasskeyAuthentication: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_uid: components["parameters"]["ProjectUid"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** Format: email */
-                    email?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Ceremony and browser options */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WebAuthnOptions"];
-                };
-            };
-        };
-    };
-    finishPasskeyAuthentication: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_uid: components["parameters"]["ProjectUid"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WebAuthnFinishRequest"];
-            };
-        };
-        responses: {
-            /** @description One-time session reference */
-            200: {
-                headers: {
-                    "Cache-Control"?: "no-store";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProjectUserSessionSecret"];
-                };
+                content?: never;
             };
         };
     };
@@ -1524,6 +2166,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
@@ -1551,6 +2194,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
             };
             cookie?: never;
