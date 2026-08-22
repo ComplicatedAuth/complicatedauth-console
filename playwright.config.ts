@@ -9,6 +9,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.CONSOLE_URL ?? "http://localhost:3000",
     browserName: "chromium",
-    trace: "retain-on-failure",
+    // Authentication requests carry HttpOnly cookies and one-time login
+    // secrets. Playwright traces persist request headers, so never retain them.
+    trace: "off",
+    screenshot: "only-on-failure",
   },
 });

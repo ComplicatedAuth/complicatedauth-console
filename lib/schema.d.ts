@@ -44,6 +44,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/.well-known/openid-configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Discover OpenID Provider metadata
+         * @description Returns the issuer and supported authorization-code, S256 PKCE, client-authentication, claims, token, UserInfo, revocation, and JWKS capabilities. The issuer is a runtime deployment origin and is never inferred from untrusted request headers.
+         */
+        get: operations["getOpenIdConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/jwks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get OAuth token verification keys
+         * @description Returns the active RSA public signing key and any retiring keys that remain necessary to verify unexpired tokens. Private key material is encrypted at rest and never appears here.
+         */
+        get: operations["getOAuthJwks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Begin OAuth authorization code flow
+         * @description Validates the active client and exact redirect URI before redirecting the browser to Tenant Member authentication and explicit consent. This provider profile requires state, nonce, and S256 PKCE. A delegated request supplies one exact registered resource indicator and only scopes explicitly granted to that client. Errors redirect only to a previously registered exact redirect URI; an untrusted client or redirect receives a local HTML error instead.
+         */
+        get: operations["authorizeOAuthApplication"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exchange an authorization code
+         * @description Atomically consumes a five-minute authorization code bound to the client, exact redirect URI, S256 verifier, and optional Resource Server. Confidential clients authenticate with HTTP Basic; public clients send client_id and no secret. A successful response returns a short-lived JWT access token whose aud is either UserInfo or the exact resource indicator, plus an RS256 ID token. A response lost after consumption requires a new authorization flow.
+         */
+        post: operations["exchangeOAuthAuthorizationCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/userinfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get claims for an authorized Tenant Member
+         * @description Resolves an active, unexpired, unrevoked access token and returns only claims authorized by its profile and email scopes. The subject is pairwise per OAuth Application.
+         */
+        get: operations["getOAuthUserInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke an OAuth access token
+         * @description Authenticates the owning client and revokes its access token. Per RFC 7009, the endpoint returns success for unknown, already revoked, or wrong-client token values so it does not become a token oracle.
+         */
+        post: operations["revokeOAuthToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/console/auth/signup": {
         parameters: {
             query?: never;
@@ -55,7 +175,7 @@ export interface paths {
         put?: never;
         /**
          * Create a Tenant and its owner
-         * @description Atomically creates a Tenant, its first owner Tenant Member, and an authenticated console session. The response sets the HttpOnly console cookie.
+         * @description Atomically creates a Tenant, its first unverified owner Tenant Member, a bootstrap-only console session, and an asynchronous 24-hour email-verification delivery. The bootstrap cookie can enroll the first WebAuthn credential but cannot authorize ordinary management operations. Verification proves email ownership and is not an authentication factor.
          */
         post: operations["signup"];
         delete?: never;
@@ -64,7 +184,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/console/auth/login": {
+    "/v1/console/login-attempts": {
         parameters: {
             query?: never;
             header?: never;
@@ -74,10 +194,220 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Sign in a Tenant Member
-         * @description Verifies management-console credentials and starts an HttpOnly console session. Repeated failures are rate limited.
+         * Start a Tenant Member login
+         * @description Creates a five-minute, deliberately non-enumerating login resource. The one-time client secret is returned only here and must be held in memory, sent only in the dedicated header on this attempt's child operations, and excluded from logs. Creation never establishes a session.
          */
-        post: operations["login"];
+        post: operations["createTenantMemberLoginAttempt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/login-attempts/{login_attempt_uid}/password-verifications": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the password factor
+         * @description Verifies one password factor without issuing a session. Source-IP and keyed-identity limits are shared across replicas. A successful response states whether initial WebAuthn enrollment is required; invalid users, passwords, and disabled memberships receive the same error.
+         */
+        post: operations["verifyTenantMemberLoginPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/login-attempts/{login_attempt_uid}/webauthn-authentication-ceremonies": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Tenant Member WebAuthn authentication
+         * @description Creates a single-use assertion ceremony after password verification. Passkey and hybrid modes select an enrolled passkey; security_key selects an enrolled cross-platform credential. User verification is required.
+         */
+        post: operations["createTenantMemberWebAuthnAuthenticationCeremony"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/login-attempts/{login_attempt_uid}/webauthn-authentication-verifications": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Tenant Member WebAuthn authentication
+         * @description Atomically consumes the assertion ceremony and login attempt, verifies the browser credential and signature counter, and creates a strong HttpOnly management session. Network retries cannot reuse either proof; after an ambiguous response, start a new login attempt.
+         */
+        post: operations["verifyTenantMemberWebAuthnAuthentication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/login-attempts/{login_attempt_uid}/webauthn-registration-ceremonies": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start initial Tenant Member WebAuthn enrollment
+         * @description Creates a registration ceremony only after password verification and only while the Tenant Member has no WebAuthn credential. Passkeys require discoverability and user verification; security keys additionally request direct attestation.
+         */
+        post: operations["createInitialTenantMemberWebAuthnRegistrationCeremony"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/login-attempts/{login_attempt_uid}/webauthn-registration-verifications": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete initial Tenant Member WebAuthn enrollment
+         * @description Atomically consumes the registration ceremony and login attempt, persists the first credential, and creates a strong HttpOnly management session. A concurrent first enrollment conflicts instead of silently creating multiple bootstrap credentials.
+         */
+        post: operations["verifyInitialTenantMemberWebAuthnRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/email-verification-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Tenant Member email verification
+         * @description Accepts an email address and, when it belongs to an active unverified Tenant Member, invalidates prior unused proofs and queues a new 24-hour one-time verification link. Known and unknown addresses receive the same response. Source-IP and normalized-identity limits are shared across replicas.
+         */
+        post: operations["createTenantEmailVerificationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/email-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a Tenant Member email
+         * @description Atomically consumes a 24-hour one-time proof and marks its active Tenant Member email as verified. Verification does not create a management session or act as an authentication factor.
+         */
+        post: operations["verifyTenantMemberEmail"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/password-reset-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a Tenant Member password reset
+         * @description Accepts an email address and, when it belongs to an active Tenant Member, invalidates prior unused proofs and queues a new 30-minute one-time reset link. Known and unknown addresses receive the same response. Source-IP and normalized-identity limits are shared across replicas.
+         */
+        post: operations["createTenantPasswordResetRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/password-resets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a Tenant Member password
+         * @description Atomically consumes a 30-minute one-time proof, replaces the password, revokes all management sessions and server-tracked OAuth access tokens, consumes outstanding authorization codes and login attempts, and removes enrolled management WebAuthn credentials. This is the explicit lost-authenticator recovery boundary; the next password-verified login must enroll a new credential before management access is restored.
+         */
+        post: operations["resetTenantMemberPassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -113,11 +443,647 @@ export interface paths {
         };
         /**
          * Get the current console session
-         * @description Returns the authenticated Tenant and Tenant Member represented by the console cookie.
+         * @description Returns the Tenant, Tenant Member, and authentication assurance represented by the console cookie. Bootstrap sessions may call this operation and WebAuthn registration operations, but ordinary management resources require strong assurance.
          */
         get: operations["getConsoleSession"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current Tenant Member's sessions
+         * @description Lists active management-console sessions for the authenticated Tenant Member. The current cookie-backed session is identified without exposing any reusable session secret.
+         */
+        get: operations["listTenantMemberSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/auth/sessions/{session_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Management-console session identifier owned by the authenticated Tenant Member. */
+                session_uid: components["parameters"]["MemberSessionUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke one management-console session
+         * @description Revokes an active session owned by the authenticated Tenant Member. Revoking the current session also clears its browser cookie.
+         */
+        delete: operations["revokeTenantMemberSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/webauthn-credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current Tenant Member's WebAuthn credentials
+         * @description Returns at most ten safe credential resources for the strongly authenticated Tenant Member. Authenticator IDs, public keys, counters, and ceremony data are never exposed.
+         */
+        get: operations["listTenantMemberWebAuthnCredentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/webauthn-registration-ceremonies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start management WebAuthn credential enrollment
+         * @description Creates a five-minute registration ceremony for the current Tenant Member. A bootstrap session may use it only to establish the first credential; a strong session may add a replacement before deleting an old credential. Already-enrolled credential identifiers are supplied in `excludeCredentials`, preventing the same authenticator from silently replacing a discoverable credential that the server still trusts. Ten credentials are allowed at most.
+         */
+        post: operations["createTenantMemberWebAuthnRegistrationCeremony"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/webauthn-registration-verifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete management WebAuthn credential enrollment
+         * @description Consumes a registration ceremony bound to the current cookie session and persists its credential. Completing the first credential upgrades a bootstrap session to strong assurance; later enrollment leaves the current strong session active.
+         */
+        post: operations["verifyTenantMemberWebAuthnRegistration"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/console/webauthn-credentials/{credential_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description WebAuthn credential metadata identifier owned by the authenticated Tenant Member. */
+                credential_uid: components["parameters"]["TenantMemberWebAuthnCredentialUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a management WebAuthn credential
+         * @description Deletes one credential with the latest strong ETag, revokes every other management session, and retains the current session. The final credential cannot be removed; enroll a replacement first. Lost-all-authenticator recovery uses the email password-reset flow.
+         */
+        delete: operations["deleteTenantMemberWebAuthnCredential"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a management WebAuthn credential
+         * @description Changes the human label using the latest strong ETag. Credential kind, attestation result, authenticator identity, and owner are immutable.
+         */
+        patch: operations["updateTenantMemberWebAuthnCredential"];
+        trace?: never;
+    };
+    "/v1/tenant/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant Members
+         * @description Lists human memberships inside the authenticated Tenant. All roles may read the collection; no credential or password material is returned.
+         */
+        get: operations["listTenantMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/members/{member_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant Member identifier scoped to the authenticated Tenant. */
+                member_uid: components["parameters"]["MemberUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Tenant Member
+         * @description Returns one membership from the authenticated Tenant. A UUID from another Tenant is indistinguishable from a missing resource.
+         */
+        get: operations["getTenantMember"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Tenant Member
+         * @description Permanently removes a different membership and its active sessions. Administrators cannot remove owners, the final active owner cannot be removed, and self-removal requires a future dedicated leave flow.
+         */
+        delete: operations["removeTenantMember"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a Tenant Member's role or status
+         * @description Owners may manage every membership; administrators may manage only non-owner memberships and cannot grant owner. Demotion, disablement, or removal can never leave the Tenant without an active owner. Disabling a member revokes all of their sessions.
+         */
+        patch: operations["updateTenantMember"];
+        trace?: never;
+    };
+    "/v1/tenant/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tenant invitations
+         * @description Lists invitation metadata and computed expiry status without returning any acceptance token. Only owners and administrators may read this collection.
+         */
+        get: operations["listTenantInvitations"];
+        put?: never;
+        /**
+         * Invite a Tenant Member
+         * @description Creates a non-owner invitation and queues its seven-day one-time acceptance link to the invited email address. The acceptance proof is never returned to the administrator. The operation requires idempotency; an identical retry replays the exact safe response for 24 hours, changed inputs conflict, and a concurrent attempt returns idempotency_in_progress with Retry-After.
+         */
+        post: operations["createTenantInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invitations/{invitation_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant invitation identifier. Acceptance additionally requires its one-time token. */
+                invitation_uid: components["parameters"]["InvitationUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a pending Tenant invitation
+         * @description Invalidates a pending, unexpired invitation while retaining its non-secret metadata and audit history. Accepted, revoked, expired, missing, and cross-Tenant invitations cannot be changed.
+         */
+        delete: operations["revokeTenantInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/tenant/invitations/{invitation_uid}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant invitation identifier. Acceptance additionally requires its one-time token. */
+                invitation_uid: components["parameters"]["InvitationUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept a Tenant invitation
+         * @description Exchanges an unexpired one-time acceptance token for a verified Tenant Member and bootstrap-only management session. The token is consumed atomically. The new member must enroll a WebAuthn credential before ordinary management access; if the response is lost, start a password-verified login and complete initial enrollment instead of retrying the invitation indefinitely.
+         */
+        post: operations["acceptTenantInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List OAuth Applications
+         * @description Lists non-deleted OAuth client registrations owned by the authenticated Tenant. Client-secret values never appear in application representations.
+         */
+        get: operations["listOAuthApplications"];
+        put?: never;
+        /**
+         * Create an OAuth Application
+         * @description Idempotently creates a public or confidential client with an opaque client ID and a canonical set of exact redirect URIs. The application type is immutable. Confidential client credentials are created separately so ordinary resource responses never mix metadata and one-time secrets.
+         */
+        post: operations["createOAuthApplication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/applications/{application_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get an OAuth Application
+         * @description Returns one non-deleted client registration from the authenticated Tenant and its strong version ETag.
+         */
+        get: operations["getOAuthApplication"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an OAuth Application
+         * @description Tombstones the registration only when If-Match is current, permanently reserves its client ID, and revokes its client secrets and server-tracked access tokens. Deleted clients no longer authorize or exchange codes.
+         */
+        delete: operations["deleteOAuthApplication"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an OAuth Application
+         * @description Changes the name, active status, or complete exact redirect-URI set only when If-Match equals the current strong ETag. Disabling an application immediately revokes its server-tracked access tokens; already issued offline-validated JWTs remain bounded by their short expiry.
+         */
+        patch: operations["updateOAuthApplication"];
+        trace?: never;
+    };
+    "/v1/oauth/applications/{application_uid}/client-secrets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List OAuth client secrets
+         * @description Lists safe prefixes, status, expiry, and usage metadata for a confidential OAuth Application. Reusable secret values never appear.
+         */
+        get: operations["listOAuthClientSecrets"];
+        put?: never;
+        /**
+         * Create an OAuth client secret
+         * @description Idempotently creates an expiring credential for a confidential client and returns its value only in this response and exact 24-hour replays. At most two unexpired active secrets permit an overlap rotation window; public clients cannot have secrets.
+         */
+        post: operations["createOAuthClientSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/applications/{application_uid}/client-secrets/{secret_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description Safe OAuth client-secret metadata identifier inside one OAuth Application. */
+                secret_uid: components["parameters"]["OAuthClientSecretUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke an OAuth client secret
+         * @description Idempotently changes the credential to revoked while retaining safe metadata and audit history. The reusable secret can no longer authenticate the client.
+         */
+        delete: operations["revokeOAuthClientSecret"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/authorization-requests/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect an OAuth consent request
+         * @description Exchanges the browser-only, short-lived authorization request handle for safe client, redirect, scope, and expiry details. The authenticated Tenant Member must belong to the OAuth Application's Tenant.
+         */
+        post: operations["inspectOAuthAuthorizationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/authorization-requests/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve or deny an OAuth consent request
+         * @description Idempotently consumes a pending authorization request. Approval persists exact consent, a stable pairwise subject, and a five-minute one-time code; denial returns access_denied. The response supplies the previously validated redirect target for browser navigation, and an exact retry returns the same code-bearing redirect.
+         */
+        post: operations["decideOAuthAuthorizationRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current Tenant Member's OAuth consents
+         * @description Lists active and revoked grants made by the authenticated Tenant Member without token or authorization-code values.
+         */
+        get: operations["listOAuthConsents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/consents/{consent_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth consent identifier owned by the authenticated Tenant Member. */
+                consent_uid: components["parameters"]["OAuthConsentUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke the current Tenant Member's OAuth consent
+         * @description Revokes the grant and every server-tracked access token for this member and application. A future authorization requires explicit approval again.
+         */
+        delete: operations["revokeOAuthConsent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resource-servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Resource Servers
+         * @description Lists non-deleted API audiences owned by the authenticated Tenant. Audience identifiers are public protocol identifiers and never inferred from request hosts.
+         */
+        get: operations["listResourceServers"];
+        put?: never;
+        /**
+         * Create a Resource Server
+         * @description Idempotently registers one exact HTTPS audience identifier, or a localhost HTTP identifier for development. The identifier is immutable and remains reserved after deletion.
+         */
+        post: operations["createResourceServer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resource-servers/{resource_server_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Resource Server
+         * @description Returns one non-deleted Resource Server from the authenticated Tenant and its strong version ETag.
+         */
+        get: operations["getResourceServer"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Resource Server
+         * @description Tombstones the audience only when If-Match is current, permanently reserves its identifier, and revokes every server-tracked access token issued for it.
+         */
+        delete: operations["deleteResourceServer"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a Resource Server
+         * @description Changes display name or status only when If-Match is current. The audience identifier is immutable. Disabling revokes affected server-tracked access tokens and increments the policy version.
+         */
+        patch: operations["updateResourceServer"];
+        trace?: never;
+    };
+    "/v1/resource-servers/{resource_server_uid}/scopes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List Resource Server scopes
+         * @description Lists the current immutable scope tokens and mutable descriptions for one Tenant-owned Resource Server.
+         */
+        get: operations["listResourceServerScopes"];
+        put?: never;
+        /**
+         * Create a Resource Server scope
+         * @description Idempotently registers an immutable lowercase scope token. OpenID names are reserved, and deleted scope names cannot be reused for a different meaning.
+         */
+        post: operations["createResourceServerScope"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/resource-servers/{resource_server_uid}/scopes/{scope_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+                /** @description Immutable delegated-scope resource identifier inside one Resource Server. */
+                scope_uid: components["parameters"]["ResourceServerScopeUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Resource Server scope
+         * @description Returns one non-deleted scope and its strong version ETag without exposing grants or tokens.
+         */
+        get: operations["getResourceServerScope"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Resource Server scope
+         * @description Tombstones the immutable scope token only when If-Match is current and revokes every server-tracked token carrying it for this Resource Server.
+         */
+        delete: operations["deleteResourceServerScope"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a Resource Server scope
+         * @description Changes the human description or status only when If-Match is current. The scope token is immutable. Disabling revokes affected server-tracked tokens.
+         */
+        patch: operations["updateResourceServerScope"];
+        trace?: never;
+    };
+    "/v1/oauth/applications/{application_uid}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List an OAuth Application's Resource Server grants
+         * @description Lists explicit Resource Server and delegated-scope assignments for one OAuth Application. User consent is separate and cannot expand these administrative grants.
+         */
+        get: operations["listOAuthApplicationGrants"];
+        put?: never;
+        /**
+         * Grant an OAuth Application access to a Resource Server
+         * @description Idempotently creates one relationship between an active client and active Resource Server with a non-empty subset of that server's active scopes. One live grant exists per client/audience pair.
+         */
+        post: operations["createOAuthApplicationGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/oauth/applications/{application_uid}/grants/{grant_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description OAuth Application to Resource Server grant identifier scoped to the authenticated Tenant. */
+                grant_uid: components["parameters"]["OAuthApplicationGrantUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get an OAuth Application grant
+         * @description Returns one non-deleted client/audience grant and its exact delegated-scope set with a strong version ETag.
+         */
+        get: operations["getOAuthApplicationGrant"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an OAuth Application grant
+         * @description Tombstones the client/audience relationship only when If-Match is current and revokes all affected server-tracked tokens. Re-authorization cannot exceed a future replacement grant.
+         */
+        delete: operations["deleteOAuthApplicationGrant"];
+        options?: never;
+        head?: never;
+        /**
+         * Update an OAuth Application grant
+         * @description Replaces the complete delegated-scope set or changes status only when If-Match is current. Any change revokes outstanding server-tracked tokens for this client/audience pair.
+         */
+        patch: operations["updateOAuthApplicationGrant"];
+        trace?: never;
+    };
+    "/v1/authorization/decisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate one resource operation
+         * @description Evaluates the baseline scope-v1 policy using only the active resource-bound token for Tenant, principal, audience, capabilities, policy version, and validity. The caller supplies an opaque resource and operation but cannot supply or override Tenant identity. A well-formed denial is a 200 decision with a stable denial_reason; invalid tokens receive 401.
+         */
+        post: operations["createAuthorizationDecision"];
         delete?: never;
         options?: never;
         head?: never;
@@ -227,7 +1193,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/api-keys": {
+    "/v1/projects/{project_uid}/service-accounts": {
         parameters: {
             query?: never;
             header?: never;
@@ -238,31 +1204,329 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Project API keys
-         * @description Lists key metadata and prefixes without returning any reusable secret value.
+         * List Project service accounts
+         * @description Lists stable workload identities for this Project. Reusable credential values are separate child resources and never appear here.
          */
-        get: operations["listApiKeys"];
+        get: operations["listServiceAccounts"];
         put?: never;
         /**
-         * Create a Project API key
-         * @description Creates a backend credential and returns its secret exactly once. Store the secret in a server-side secret manager.
+         * Create a Project service account
+         * @description Creates a stable workload identity with an explicit least-privilege scope set. Credential issuance is a separate operation so rotation can safely overlap versions.
          */
-        post: operations["createApiKey"];
+        post: operations["createServiceAccount"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_uid}/api-keys/{key_uid}": {
+    "/v1/projects/{project_uid}/service-accounts/{service_account_uid}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
-                /** @description Project API key identifier. */
-                key_uid: components["parameters"]["KeyUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Project service account
+         * @description Returns one stable workload identity, its current effective scopes, environment, lifecycle, creator attribution, and concurrency version.
+         */
+        get: operations["getServiceAccount"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a Project service account
+         * @description Tombstones the workload identity and permanently revokes all of its active credentials. The current strong ETag is required.
+         */
+        delete: operations["deleteServiceAccount"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a Project service account
+         * @description Changes human metadata, scopes, or status using optimistic concurrency. Scope removal is effective on the next request. Disabling revokes all active credentials; later re-enabling requires a newly issued credential.
+         */
+        patch: operations["updateServiceAccount"];
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/service-accounts/{service_account_uid}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List service-account credentials
+         * @description Lists safe credential-version metadata in reverse creation order, including expiry, last use, fingerprint, creator, and revocation reason. Secret values are never returned. Continue with the opaque cursor instead of constructing one.
+         */
+        get: operations["listServiceCredentials"];
+        put?: never;
+        /**
+         * Issue a service-account credential
+         * @description Issues one expiring credential version and returns the reusable secret exactly once. Exact retries replay the same response for 24 hours. At most two active unexpired versions may overlap for deploy-then-revoke rotation.
+         */
+        post: operations["createServiceCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_uid}/service-accounts/{service_account_uid}/credentials/{credential_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+                /** @description Expiring service-account credential version identifier. */
+                credential_uid: components["parameters"]["ServiceCredentialUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a service-account credential
+         * @description Returns safe metadata for one credential version. Expired is a derived terminal status; the reusable secret is never returned.
+         */
+        get: operations["getServiceCredential"];
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a service-account credential
+         * @description Idempotently and permanently invalidates one credential version. Other active versions under the same service account continue to work, enabling safe overlap rotation.
+         */
+        delete: operations["revokeServiceCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accessible Support Cases
+         * @description Returns the Tenant-wide operator inbox for a console session, or only cases in the service credential's exact Project. Optional filters are conjunctive; the Project filter is available only to console operators. Results use reverse updated-time order and opaque cursor pagination.
+         */
+        get: operations["listSupportCases"];
+        put?: never;
+        /**
+         * Create a Support Case
+         * @description Creates a Tenant-owned case and immutable initial public message. A service credential is confined to its own Project and may attribute the report to a Project User in that Project. A console operator may create a Tenant-level case or select a Tenant-owned Project. Diagnostics are accepted only with explicit consent. Exact retries replay the same response for 24 hours.
+         */
+        post: operations["createSupportCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a Support Case
+         * @description Returns one accessible case, its decrypted subject and consented diagnostic snapshot, aggregate correspondence counts, lifecycle timestamps, and current concurrency version. Service credentials cannot cross their persisted Project boundary.
+         */
+        get: operations["getSupportCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update a Support Case
+         * @description Applies an optimistic-concurrency update. Tenant support operators may change subject, category, priority, assignment, or lifecycle state. A Project service credential may only close a case or reopen it to `open`. The documented state machine rejects invalid transitions; terminal cases must be reopened before adding content.
+         */
+        patch: operations["updateSupportCase"];
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List Support Case messages
+         * @description Lists immutable correspondence in ascending creation order. Console operators receive public messages and internal notes; service credentials receive only public messages. Message bodies are decrypted only after Tenant and Project access checks.
+         */
+        get: operations["listSupportCaseMessages"];
+        put?: never;
+        /**
+         * Add a Support Case message
+         * @description Appends one immutable message. Console operators may create public replies or internal notes; a service credential may create only a public message and may attribute it to a Project User in its Project. Resolved and closed cases must be explicitly reopened first. Exact retries replay the same result for 24 hours.
+         */
+        post: operations["createSupportCaseMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List Support Case attachments
+         * @description Lists encrypted attachment metadata in reverse creation order after case access checks. File bytes are available only from the separate no-store content operation.
+         */
+        get: operations["listSupportCaseAttachments"];
+        put?: never;
+        /**
+         * Upload a Support Case attachment
+         * @description Encrypts and stores one PNG, JPEG, WebP, PDF, UTF-8 text, or valid JSON file of at most 5 MiB. A case may retain at most 20 attachments and 25 MiB total. Service credentials may attribute the upload to a Project User in their Project. The content digest and metadata define exact idempotent replay for 24 hours.
+         */
+        post: operations["createSupportCaseAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/attachments/{attachment_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Encrypted attachment identifier inside one accessible Support Case. */
+                attachment_uid: components["parameters"]["SupportCaseAttachmentUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get Support Case attachment metadata
+         * @description Returns safe metadata and the decrypted filename for one accessible attachment, never its bytes.
+         */
+        get: operations["getSupportCaseAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/attachments/{attachment_uid}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Encrypted attachment identifier inside one accessible Support Case. */
+                attachment_uid: components["parameters"]["SupportCaseAttachmentUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download Support Case attachment content
+         * @description Decrypts one accessible attachment and returns it with private no-store caching, attachment disposition, and content-sniffing disabled. Clients must still treat all customer files as untrusted.
+         */
+        get: operations["downloadSupportCaseAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List immutable Support Case events
+         * @description Lists the append-only lifecycle in ascending creation order. Service credentials receive only public events; console operators additionally receive internal assignment, priority, note, and external-reference activity. Event payloads never contain message bodies, filenames, file bytes, or external identifiers.
+         */
+        get: operations["listSupportCaseEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/external-references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List Support Case external references
+         * @description Lists generic encrypted links to records in other systems for Tenant support operators. Project service credentials cannot access connector coordination metadata.
+         */
+        get: operations["listSupportCaseExternalReferences"];
+        put?: never;
+        /**
+         * Link an external Support Case record
+         * @description Adds an immutable provider and encrypted external identifier, optional safe URL, and label. The generic resource does not assign connector-specific meaning. Provider plus external ID is unique per case; exact retries replay for 24 hours.
+         */
+        post: operations["createSupportCaseExternalReference"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_uid}/external-references/{external_reference_uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Generic external-record link identifier inside one Tenant-accessible Support Case. */
+                external_reference_uid: components["parameters"]["SupportCaseExternalReferenceUid"];
             };
             cookie?: never;
         };
@@ -270,39 +1534,10 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Revoke a Project API key
-         * @description Permanently invalidates the key for all future runtime requests.
+         * Unlink an external Support Case record
+         * @description Idempotently removes one external link while preserving an immutable internal event and security audit record that omit the external identifier and URL.
          */
-        delete: operations["revokeApiKey"];
-        options?: never;
-        head?: never;
-        /**
-         * Rename a Project API key
-         * @description Changes the human-readable key name without changing its credential material.
-         */
-        patch: operations["renameApiKey"];
-        trace?: never;
-    };
-    "/v1/projects/{project_uid}/api-keys/{key_uid}/rotate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project authentication-boundary identifier. */
-                project_uid: components["parameters"]["ProjectUid"];
-                /** @description Project API key identifier. */
-                key_uid: components["parameters"]["KeyUid"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate a Project API key
-         * @description Invalidates the current secret and returns a replacement secret exactly once.
-         */
-        post: operations["rotateApiKey"];
-        delete?: never;
+        delete: operations["deleteSupportCaseExternalReference"];
         options?: never;
         head?: never;
         patch?: never;
@@ -320,7 +1555,7 @@ export interface paths {
         };
         /**
          * List Project Users
-         * @description Lists application identities in one Project. Either a console session or that Project's API key may authorize the request.
+         * @description Lists application identities in one Project. A console session or a service credential whose account grants `project_users.read` may authorize the request.
          */
         get: operations["listProjectUsers"];
         put?: never;
@@ -498,7 +1733,7 @@ export interface paths {
         put?: never;
         /**
          * Start a Project User login
-         * @description Creates a short-lived, non-enumerating login attempt and returns an opaque reference for subsequent factor checks.
+         * @description Creates a short-lived, non-enumerating login attempt and returns an opaque reference for subsequent factor checks. A shared Project-and-source-IP policy limits creation across API replicas.
          */
         post: operations["startProjectUserLogin"];
         delete?: never;
@@ -524,7 +1759,7 @@ export interface paths {
         put?: never;
         /**
          * Verify the password factor
-         * @description Verifies the password against the referenced login attempt without issuing a session. A second factor or first-FIDO enrollment must follow.
+         * @description Verifies the password against the referenced login attempt without issuing a session. A second factor or first-FIDO enrollment must follow. Attempts share a Project-and-source-IP limit across API replicas.
          */
         post: operations["verifyProjectUserLoginPassword"];
         delete?: never;
@@ -680,7 +1915,7 @@ export interface paths {
         put?: never;
         /**
          * Begin additional FIDO enrollment
-         * @description Starts a WebAuthn registration ceremony for an already authenticated Project User session.
+         * @description Starts a WebAuthn registration ceremony for an already authenticated Project User session. Already-enrolled identifiers are supplied in `excludeCredentials`, preventing silent replacement of a discoverable credential that the server still trusts.
          */
         post: operations["beginFidoEnrollment"];
         delete?: never;
@@ -816,6 +2051,352 @@ export interface components {
                 request_id: string;
             };
         };
+        /** @description RFC-style OAuth error code and a safe human-readable description; it deliberately does not expose the platform ErrorEnvelope. */
+        OAuthError: {
+            error: string;
+            error_description: string;
+        };
+        /** @description OpenID Provider discovery metadata for the deployed immutable issuer origin and supported baseline profile. */
+        OpenIdConfiguration: {
+            /** Format: uri */
+            issuer: string;
+            /** Format: uri */
+            authorization_endpoint: string;
+            /** Format: uri */
+            token_endpoint: string;
+            /** Format: uri */
+            userinfo_endpoint: string;
+            /** Format: uri */
+            jwks_uri: string;
+            /** Format: uri */
+            revocation_endpoint: string;
+            response_types_supported: string[];
+            grant_types_supported: string[];
+            subject_types_supported: string[];
+            id_token_signing_alg_values_supported: string[];
+            scopes_supported: string[];
+            code_challenge_methods_supported: string[];
+            token_endpoint_auth_methods_supported: string[];
+            claims_supported?: string[];
+            request_parameter_supported?: boolean;
+            request_uri_parameter_supported?: boolean;
+            require_request_uri_registration?: boolean;
+            authorization_response_iss_parameter_supported?: boolean;
+        };
+        /** @description RSA public verification key published for RS256 OAuth and OpenID Connect tokens. */
+        JsonWebKey: {
+            /** @enum {string} */
+            kty: "RSA";
+            /** @enum {string} */
+            use: "sig";
+            /** @enum {string} */
+            alg: "RS256";
+            kid: string;
+            /** @description Base64url-encoded unsigned RSA modulus. */
+            n: string;
+            /** @description Base64url-encoded unsigned RSA public exponent. */
+            e: string;
+        };
+        /** @description Public active and still-valid retiring token verification keys. */
+        JsonWebKeySet: {
+            keys: components["schemas"]["JsonWebKey"][];
+        };
+        /**
+         * @description OAuth client confidentiality classification. Public clients never receive a secret; confidential clients authenticate from a trusted backend.
+         * @enum {string}
+         */
+        OAuthApplicationType: "public" | "confidential";
+        /** @description Tenant-owned OAuth client registration with immutable client type, exact redirects, and a monotonic concurrency version. */
+        OAuthApplication: {
+            uid: components["schemas"]["Uuid"];
+            name: string;
+            client_id: string;
+            application_type: components["schemas"]["OAuthApplicationType"];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: int64 */
+            version: number;
+            redirect_uris: string[];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated collection of non-deleted Tenant OAuth Applications. */
+        OAuthApplicationPage: {
+            items: components["schemas"]["OAuthApplication"][];
+            next_cursor?: string | null;
+        };
+        /** @description Immutable client type, display name, and canonical exact redirect set used to register an OAuth Application. */
+        CreateOAuthApplicationRequest: {
+            name: string;
+            application_type: components["schemas"]["OAuthApplicationType"];
+            redirect_uris: string[];
+        };
+        /** @description Partial OAuth Application update; at least one field is required and redirect_uris replaces the complete exact set. */
+        UpdateOAuthApplicationRequest: {
+            name?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            redirect_uris?: string[];
+        };
+        /** @description Safe metadata for an expiring confidential-client credential; reusable secret material is absent. */
+        OAuthClientSecret: {
+            uid: components["schemas"]["Uuid"];
+            name: string;
+            prefix: string;
+            /** @enum {string} */
+            status: "active" | "revoked" | "expired";
+            created_at: components["schemas"]["Timestamp"];
+            expires_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /** @description Client-secret metadata plus the credential value returned only by idempotent creation and its exact replays. */
+        OAuthClientSecretSecret: components["schemas"]["OAuthClientSecret"] & {
+            secret: string;
+        };
+        /** @description Complete safe client-secret metadata collection for one OAuth Application. */
+        OAuthClientSecretList: {
+            items: components["schemas"]["OAuthClientSecret"][];
+        };
+        /** @description Human-readable credential name and optional explicit expiry; omitted expiry defaults to 90 days. */
+        CreateOAuthClientSecretRequest: {
+            name: string;
+            /**
+             * Format: date-time
+             * @description Must be between five minutes and 365 days in the future.
+             */
+            expires_at?: string;
+        };
+        /** @description Browser-only opaque authorization request handle submitted from the consent page body rather than its HTTP request URL. */
+        InspectOAuthAuthorizationRequest: {
+            request_token: string;
+        };
+        /** @description Safe client, redirect, scope, and expiry details displayed for explicit Tenant Member consent. */
+        OAuthAuthorizationRequest: {
+            application_uid: components["schemas"]["Uuid"];
+            application_name: string;
+            client_id: string;
+            /** Format: uri */
+            redirect_uri: string;
+            scopes: string[];
+            scope_details: components["schemas"]["OAuthAuthorizationScope"][];
+            /** Format: uuid */
+            resource_server_uid?: string | null;
+            resource_server_name?: string | null;
+            /** Format: uri */
+            resource_server_identifier?: string | null;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Safe human-facing consent metadata paired with one immutable protocol scope token. */
+        OAuthAuthorizationScope: {
+            name: string;
+            display_name: string;
+            description: string;
+        };
+        /** @description One-time authorization request proof and the Tenant Member's explicit decision. */
+        OAuthAuthorizationDecisionRequest: {
+            request_token: string;
+            /** @enum {string} */
+            decision: "approve" | "deny";
+        };
+        /** @description Previously validated exact redirect URI with code or OAuth error, state, and issuer parameters for browser navigation. */
+        OAuthAuthorizationDecision: {
+            /** Format: uri */
+            redirect_to: string;
+        };
+        /** @description Authorization-code exchange form. Confidential clients use HTTP Basic and omit client_id; public clients send client_id and no secret. */
+        OAuthTokenRequest: {
+            /** @enum {string} */
+            grant_type: "authorization_code";
+            code: string;
+            /** Format: uri */
+            redirect_uri: string;
+            code_verifier: string;
+            client_id?: string;
+        };
+        /** @description Short-lived access token bound either to UserInfo or one exact Resource Server audience, plus an OpenID ID token issued for one consumed authorization code. */
+        OAuthTokenResponse: {
+            access_token: string;
+            /** @enum {string} */
+            token_type: "Bearer";
+            /** Format: int64 */
+            expires_in: number;
+            scope: string;
+            id_token: string;
+        };
+        /** @description Access-token revocation form plus client_id for unauthenticated public-client revocation. */
+        OAuthRevocationRequest: {
+            token: string;
+            /** @enum {string} */
+            token_type_hint?: "access_token";
+            client_id?: string;
+        };
+        /** @description Pairwise subject and only those profile or email claims included in the access token's granted scopes. */
+        OAuthUserInfo: {
+            sub: string;
+            name?: string;
+            /** Format: email */
+            email?: string;
+            email_verified?: boolean;
+        };
+        /** @description Tenant Member grant metadata for one OAuth Application and optional Resource Server; token values and authorization codes are never exposed. */
+        OAuthConsent: {
+            uid: components["schemas"]["Uuid"];
+            application_uid: components["schemas"]["Uuid"];
+            application_name: string;
+            client_id: string;
+            scopes: string[];
+            /** Format: uuid */
+            resource_server_uid?: string | null;
+            resource_server_name?: string | null;
+            /** Format: uri */
+            resource_server_identifier?: string | null;
+            /** @enum {string} */
+            status: "active" | "revoked";
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /** @description Cursor-paginated OAuth consent history for the authenticated Tenant Member. */
+        OAuthConsentPage: {
+            items: components["schemas"]["OAuthConsent"][];
+            next_cursor?: string | null;
+        };
+        /** @description Tenant-owned OAuth resource audience with an immutable exact identifier, mutable status, resource version, and monotonic scope-policy version. */
+        ResourceServer: {
+            uid: components["schemas"]["Uuid"];
+            name: string;
+            /** Format: uri */
+            identifier: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            policy_version: number;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated collection of non-deleted Tenant Resource Servers. */
+        ResourceServerPage: {
+            items: components["schemas"]["ResourceServer"][];
+            next_cursor?: string | null;
+        };
+        /** @description Display name and immutable exact API audience identifier used to register a Resource Server. */
+        CreateResourceServerRequest: {
+            name: string;
+            /** Format: uri */
+            identifier: string;
+        };
+        /** @description Partial Resource Server metadata update; the audience identifier is intentionally absent and immutable. */
+        UpdateResourceServerRequest: {
+            name?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        /** @description Immutable lowercase capability token. OpenID scope names and offline_access are reserved. */
+        DelegatedScopeName: string;
+        /** @description Immutable delegated scope token with mutable human description, status, and optimistic-concurrency version. */
+        ResourceServerScope: {
+            uid: components["schemas"]["Uuid"];
+            name: components["schemas"]["DelegatedScopeName"];
+            display_name: string;
+            description: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: int64 */
+            version: number;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Complete non-deleted delegated-scope collection for one Resource Server. */
+        ResourceServerScopeList: {
+            items: components["schemas"]["ResourceServerScope"][];
+        };
+        /** @description Immutable scope token and human-facing consent description. */
+        CreateResourceServerScopeRequest: {
+            name: components["schemas"]["DelegatedScopeName"];
+            display_name: string;
+            /** @default  */
+            description: string;
+        };
+        /** @description Partial scope metadata update; the protocol scope token is intentionally absent and immutable. */
+        UpdateResourceServerScopeRequest: {
+            display_name?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        /** @description Administrative upper bound on delegated scopes an OAuth Application may request for one Resource Server. Tenant Member consent can only narrow it. */
+        OAuthApplicationGrant: {
+            uid: components["schemas"]["Uuid"];
+            application_uid: components["schemas"]["Uuid"];
+            resource_server_uid: components["schemas"]["Uuid"];
+            resource_server_name: string;
+            /** Format: uri */
+            resource_server_identifier: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /** Format: int64 */
+            version: number;
+            scopes: components["schemas"]["DelegatedScopeName"][];
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Complete non-deleted Resource Server grants for one OAuth Application. */
+        OAuthApplicationGrantList: {
+            items: components["schemas"]["OAuthApplicationGrant"][];
+        };
+        /** @description Resource Server relationship and complete non-empty set of active scope resource identifiers. */
+        CreateOAuthApplicationGrantRequest: {
+            resource_server_uid: components["schemas"]["Uuid"];
+            scope_uids: components["schemas"]["Uuid"][];
+        };
+        /** @description Partial grant update; scope_uids replaces the complete non-empty scope assignment. */
+        UpdateOAuthApplicationGrantRequest: {
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            scope_uids?: components["schemas"]["Uuid"][];
+        };
+        /** @description Opaque customer-resource identity interpreted by the Resource Server; ComplicatedAuth binds it to the token-derived Tenant but does not fetch customer data. */
+        AuthorizationResource: {
+            type: string;
+            id: string;
+        };
+        /** @description Resource, delegated operation, and bounded optional context. Tenant, principal, audience, and capabilities deliberately cannot be supplied. */
+        CreateAuthorizationDecisionRequest: {
+            resource: components["schemas"]["AuthorizationResource"];
+            operation: components["schemas"]["DelegatedScopeName"];
+            /** @description Optional JSON context capped at 8 KiB by the server. The scope-v1 policy reserves it for forwards-compatible signals and does not use it to expand access. */
+            context?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Stable pairwise Tenant Member principal derived only from the verified OAuth access token. */
+        OAuthAuthorizationPrincipal: {
+            /** @enum {string} */
+            type: "tenant_member";
+            subject: string;
+        };
+        /** @description Deterministic scope-v1 allow or deny result bounded by the active resource token, current administrative grant, scope catalog, policy version, and validity time. */
+        AuthorizationDecision: {
+            allowed: boolean;
+            principal: components["schemas"]["OAuthAuthorizationPrincipal"];
+            tenant_uid: components["schemas"]["Uuid"];
+            resource_server_uid: components["schemas"]["Uuid"];
+            /** Format: uri */
+            resource_server_identifier: string;
+            resource: components["schemas"]["AuthorizationResource"];
+            operation: components["schemas"]["DelegatedScopeName"];
+            capabilities: components["schemas"]["DelegatedScopeName"][];
+            policy_version: string;
+            valid_until: components["schemas"]["Timestamp"];
+            /** @enum {string|null} */
+            denial_reason: "missing_capability" | "unknown_operation" | null;
+        };
         /** @description Tenant and first-owner fields accepted during management-console signup. */
         SignupRequest: {
             /** Format: email */
@@ -824,10 +2405,96 @@ export interface components {
             display_name: string;
             tenant_name: string;
         };
-        /** @description Tenant Member credentials accepted by management-console login. */
-        LoginRequest: {
+        /** @description Email lookup used to create a deliberately non-enumerating management login attempt. */
+        TenantMemberLoginAttemptRequest: {
             /** Format: email */
             email: string;
+        };
+        /** @description Five-minute management login resource with a client secret returned only in this creation response. */
+        TenantMemberLoginAttempt: {
+            uid: components["schemas"]["Uuid"];
+            client_secret: string;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Password-verification result that selects either existing-credential authentication or one-time first enrollment. */
+        TenantMemberLoginProgress: {
+            /** @enum {string} */
+            status: "password_verified";
+            credential_setup_required: boolean;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description WebAuthn assertion category selected for a password-verified management login. */
+        TenantMemberWebAuthnModeRequest: {
+            /** @enum {string} */
+            mode: "passkey" | "security_key" | "hybrid";
+        };
+        /** @description Human label and authenticator category for a management WebAuthn credential. */
+        TenantMemberWebAuthnRegistrationRequest: {
+            name: string;
+            /** @enum {string} */
+            mode: "passkey" | "security_key";
+        };
+        /** @description Five-minute, single-use management WebAuthn ceremony and browser-compatible PublicKeyCredential options. */
+        TenantMemberWebAuthnCeremony: {
+            uid: components["schemas"]["Uuid"];
+            expires_at: components["schemas"]["Timestamp"];
+            public_key: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Browser-produced PublicKeyCredential result bound to the exact ceremony and requested authenticator category. */
+        TenantMemberWebAuthnFinishRequest: {
+            /** @enum {string} */
+            mode: "passkey" | "security_key" | "hybrid";
+            ceremony_uid: components["schemas"]["Uuid"];
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Safe, versioned metadata for one management passkey or attested security key. Authenticator identifiers, public keys, and counters remain internal. */
+        TenantMemberWebAuthnCredential: {
+            uid: components["schemas"]["Uuid"];
+            name: string;
+            /** @enum {string} */
+            kind: "passkey" | "security_key";
+            attested: boolean;
+            /** Format: int64 */
+            version: number;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            last_used_at?: string | null;
+        };
+        /** @description Complete, bounded collection of the current Tenant Member's management WebAuthn credentials. */
+        TenantMemberWebAuthnCredentialList: {
+            items: components["schemas"]["TenantMemberWebAuthnCredential"][];
+        };
+        /** @description Replacement human label for an enrolled management WebAuthn credential. */
+        UpdateTenantMemberWebAuthnCredentialRequest: {
+            name: string;
+        };
+        /** @description Generic acknowledgement used where revealing whether an account exists would create an enumeration oracle. */
+        AcceptedRequest: {
+            /** @enum {boolean} */
+            accepted: true;
+        };
+        /** @description Email lookup for a deliberately non-enumerating Tenant Member verification request. */
+        EmailVerificationRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /** @description One-time email-ownership proof delivered out of band. */
+        CompleteEmailVerificationRequest: {
+            token: string;
+        };
+        /** @description Email lookup for a deliberately non-enumerating Tenant Member password-reset request. */
+        PasswordResetRequest: {
+            /** Format: email */
+            email: string;
+        };
+        /** @description One-time reset proof and replacement password. */
+        CompletePasswordResetRequest: {
+            token: string;
             password: string;
         };
         /** @description Administrative owner boundary for Projects and Tenant Members. */
@@ -836,21 +2503,94 @@ export interface components {
             name: string;
             slug: string;
         };
-        /** @description Human administrator authenticated to the management console. */
+        /** @description Human membership authenticated to the management console and authorized by its Tenant role. */
         TenantMember: {
             uid: components["schemas"]["Uuid"];
             /** Format: email */
             email: string;
             display_name: string;
+            role: components["schemas"]["TenantRole"];
             /** @enum {string} */
-            role: "owner";
+            status: "active" | "disabled";
+            email_verified: boolean;
+            created_at: components["schemas"]["Timestamp"];
         };
-        /** @description Authenticated management-console context returned after signup, login, or session discovery. */
+        /**
+         * @description Tenant authorization role. Owner and admin manage membership; developer manages Projects, credentials, and Project Users; support may read and revoke Project User sessions; viewer is read-only.
+         * @enum {string}
+         */
+        TenantRole: "owner" | "admin" | "developer" | "support" | "viewer";
+        /** @description Cursor-paginated collection of Tenant Members. */
+        TenantMemberPage: {
+            items: components["schemas"]["TenantMember"][];
+            next_cursor?: string | null;
+        };
+        /** @description Partial membership authorization or status change; at least one property is required by the operation. */
+        UpdateTenantMemberRequest: {
+            role?: components["schemas"]["TenantRole"];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        /** @description Email and non-owner role used to create a Tenant invitation. */
+        CreateTenantInvitationRequest: {
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "admin" | "developer" | "support" | "viewer";
+        };
+        /** @description One-time invitation proof and the profile credentials established by the new Tenant Member. */
+        AcceptTenantInvitationRequest: {
+            acceptance_token: string;
+            password: string;
+            display_name: string;
+        };
+        /** @description Tenant membership invitation metadata. Expired is computed when a pending invitation passes its expiry timestamp. */
+        TenantInvitation: {
+            uid: components["schemas"]["Uuid"];
+            /** Format: email */
+            email: string;
+            /** @enum {string} */
+            role: "admin" | "developer" | "support" | "viewer";
+            /** @enum {string} */
+            status: "pending" | "accepted" | "revoked" | "expired";
+            created_at: components["schemas"]["Timestamp"];
+            expires_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            accepted_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /** @description Cursor-paginated collection of Tenant invitation metadata without acceptance tokens. */
+        TenantInvitationPage: {
+            items: components["schemas"]["TenantInvitation"][];
+            next_cursor?: string | null;
+        };
+        /** @description Safe metadata for one active management-console session, including its current authentication assurance; no cookie or reusable reference is exposed. */
+        TenantMemberSession: {
+            uid: components["schemas"]["Uuid"];
+            current: boolean;
+            authentication_assurance: components["schemas"]["AuthenticationAssurance"];
+            created_at: components["schemas"]["Timestamp"];
+            last_seen_at: components["schemas"]["Timestamp"];
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated collection of active management-console sessions. */
+        TenantMemberSessionPage: {
+            items: components["schemas"]["TenantMemberSession"][];
+            next_cursor?: string | null;
+        };
+        /** @description Cookie-backed management-console context. Bootstrap assurance authorizes only session discovery, logout, and first WebAuthn enrollment; strong assurance authorizes role-permitted management operations. */
         ConsoleSession: {
             tenant: components["schemas"]["Tenant"];
             member: components["schemas"]["TenantMember"];
+            authentication_assurance: components["schemas"]["AuthenticationAssurance"];
             expires_at: components["schemas"]["Timestamp"];
         };
+        /**
+         * @description Bootstrap sessions may enroll the first management WebAuthn credential; strong sessions completed password plus user-verified WebAuthn authentication.
+         * @enum {string}
+         */
+        AuthenticationAssurance: "bootstrap" | "strong";
         /** @description Complete configuration required to create an isolated Project and its first allowed origin. */
         CreateProjectRequest: {
             name: string;
@@ -885,7 +2625,7 @@ export interface components {
             origins: components["schemas"]["Origin"][];
             origin_count: number;
             user_count: number;
-            api_key_count: number;
+            service_account_count: number;
             created_at: components["schemas"]["Timestamp"];
         };
         /** @description Cursor-paginated collection of Projects. */
@@ -905,26 +2645,263 @@ export interface components {
             origin: string;
             created_at: components["schemas"]["Timestamp"];
         };
-        /** @description Human-readable name used when creating or renaming a Project API key. */
-        NameRequest: {
+        /** @description Stable workload identity metadata and its complete initial least-privilege scope set. */
+        CreateServiceAccountRequest: {
             name: string;
+            description?: string;
+            scopes: components["schemas"]["ServiceAccountScopes"];
         };
-        /** @description Project API key metadata that is safe to list; it never contains a reusable secret. */
-        ApiKey: {
+        /** @description Partial workload-identity update; omitted fields remain unchanged. Empty updates are rejected. */
+        UpdateServiceAccountRequest: {
+            name?: string;
+            description?: string;
+            /** @enum {string} */
+            status?: "active" | "disabled";
+            scopes?: components["schemas"]["ServiceAccountScopes"];
+        };
+        /** @description Complete effective capability set read on every service-credential request. Values are stable public protocol names. */
+        ServiceAccountScopes: ("project_users.read" | "project_users.write" | "authentication.perform" | "sessions.manage" | "support_cases.read" | "support_cases.write")[];
+        /** @description Stable Project workload identity. Secret-bearing credential versions are nested resources and never appear in this representation. */
+        ServiceAccount: {
             uid: components["schemas"]["Uuid"];
             name: string;
-            prefix: string;
+            description: string;
             /** @enum {string} */
-            status: "active" | "revoked";
+            status: "active" | "disabled";
+            scopes: components["schemas"]["ServiceAccountScopes"];
+            /** @enum {string} */
+            environment: "sandbox" | "production";
+            /** Format: int64 */
+            version: number;
+            /** Format: uuid */
+            created_by_member_uid?: string | null;
             created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            disabled_at?: string | null;
+        };
+        /** @description Cursor-paginated Project service-account collection. */
+        ServiceAccountPage: {
+            items: components["schemas"]["ServiceAccount"][];
+            next_cursor?: string | null;
+        };
+        /** @description Human deployment label and optional expiry for a newly issued credential version. Omitted expiry defaults to 90 days. */
+        CreateServiceCredentialRequest: {
+            name: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        /** @description Safe metadata for one expiring service-account credential; reusable secret material is absent. */
+        ServiceCredential: {
+            uid: components["schemas"]["Uuid"];
+            service_account_uid: components["schemas"]["Uuid"];
+            name: string;
+            prefix: string;
+            fingerprint: string;
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            /** Format: uuid */
+            created_by_member_uid?: string | null;
+            created_at: components["schemas"]["Timestamp"];
+            expires_at: components["schemas"]["Timestamp"];
             /** Format: date-time */
             last_used_at?: string | null;
             /** Format: date-time */
             revoked_at?: string | null;
+            /** Format: uuid */
+            revoked_by_member_uid?: string | null;
+            revocation_reason?: string | null;
         };
-        /** @description Project API key metadata plus the one-time secret returned only at creation or rotation. */
-        ApiKeySecret: components["schemas"]["ApiKey"] & {
+        /** @description Credential metadata plus the reusable secret returned only by an exact issuance response or its bounded idempotent replay. */
+        ServiceCredentialSecret: components["schemas"]["ServiceCredential"] & {
             secret: string;
+        };
+        /** @description One cursor-paginated page of credential history for one service account. */
+        ServiceCredentialList: {
+            items: components["schemas"]["ServiceCredential"][];
+            next_cursor: string | null;
+        };
+        /**
+         * @description Stable customer-intent category selected independently from operator priority and lifecycle state.
+         * @enum {string}
+         */
+        SupportCaseCategory: "bug" | "feedback" | "question";
+        /**
+         * @description Support workflow state. Open work may progress or wait for the customer; resolved and closed cases must be reopened before new content is accepted.
+         * @enum {string}
+         */
+        SupportCaseStatus: "open" | "in_progress" | "waiting_for_customer" | "resolved" | "closed";
+        /**
+         * @description Tenant-operator triage priority; Project service credentials cannot set or change it.
+         * @enum {string}
+         */
+        SupportCasePriority: "low" | "normal" | "high" | "urgent";
+        /** @description Durable attribution for the reported customer identity or actual workload/human actor. A service account may submit content on behalf of a same-Project user while remaining separately audit-attributed. */
+        SupportReporter: {
+            /** @enum {string} */
+            type: "tenant_member" | "project_user" | "service_account" | "system";
+            uid: components["schemas"]["Uuid"];
+        };
+        /** @description Explicitly consented, allowlisted diagnostic snapshot. Current URLs prohibit credentials, query strings, and fragments so bearer material is not accidentally collected. */
+        SupportDiagnostics: {
+            application_version?: string;
+            platform?: string;
+            locale?: string;
+            timezone?: string;
+            /** Format: uri */
+            current_url?: string;
+            request_id?: string;
+            occurred_at?: components["schemas"]["Timestamp"];
+        };
+        /** @description New customer question, feedback item, or bug report plus its immutable initial message. Console operators may select a Project and priority; service credentials are bound to their own Project and cannot set priority. */
+        CreateSupportCaseRequest: {
+            /** @description Console-selected Tenant Project. A service credential may omit it or repeat only its own Project. */
+            project_uid?: components["schemas"]["Uuid"];
+            category: components["schemas"]["SupportCaseCategory"];
+            subject: string;
+            message: string;
+            priority?: components["schemas"]["SupportCasePriority"];
+            /** @description Optional reporter attribution to a Project User in the selected or credential-bound Project. */
+            reporter_project_user_uid?: components["schemas"]["Uuid"];
+            diagnostic_consent: boolean;
+            diagnostics?: components["schemas"]["SupportDiagnostics"];
+        };
+        /** @description Partial ETag-guarded case update. Console operators may use every field; service credentials may supply only status `open` or `closed`. Null assignee clears assignment. */
+        UpdateSupportCaseRequest: {
+            subject?: string;
+            category?: components["schemas"]["SupportCaseCategory"];
+            status?: components["schemas"]["SupportCaseStatus"];
+            priority?: components["schemas"]["SupportCasePriority"];
+            /** Format: uuid */
+            assignee_member_uid?: string | null;
+        };
+        /** @description Tenant-owned support workflow aggregate. Sensitive text is encrypted at rest; structured routing, lifecycle, counts, timestamps, and opaque identifiers remain queryable. */
+        SupportCase: {
+            uid: components["schemas"]["Uuid"];
+            reference: string;
+            tenant_uid: components["schemas"]["Uuid"];
+            /** Format: uuid */
+            project_uid?: string | null;
+            category: components["schemas"]["SupportCaseCategory"];
+            subject: string;
+            status: components["schemas"]["SupportCaseStatus"];
+            priority: components["schemas"]["SupportCasePriority"];
+            reporter: components["schemas"]["SupportReporter"];
+            /** Format: uuid */
+            assignee_member_uid?: string | null;
+            diagnostic_consent: boolean;
+            diagnostics?: components["schemas"]["SupportDiagnostics"];
+            /** Format: int64 */
+            version: number;
+            message_count: number;
+            attachment_count: number;
+            /** Format: int64 */
+            attachment_bytes: number;
+            created_at: components["schemas"]["Timestamp"];
+            updated_at: components["schemas"]["Timestamp"];
+            last_message_at: components["schemas"]["Timestamp"];
+            /** Format: date-time */
+            resolved_at?: string | null;
+            /** Format: date-time */
+            closed_at?: string | null;
+            /** Format: date-time */
+            retention_until?: string | null;
+        };
+        /** @description Cursor-paginated Support Case inbox page. */
+        SupportCasePage: {
+            items: components["schemas"]["SupportCase"][];
+            next_cursor: string | null;
+        };
+        /** @description Immutable public correspondence or console-only internal note. A service credential may attribute public content to a Project User in its Project. */
+        CreateSupportCaseMessageRequest: {
+            body: string;
+            /**
+             * @default public
+             * @enum {string}
+             */
+            visibility: "public" | "internal";
+            author_project_user_uid?: components["schemas"]["Uuid"];
+        };
+        /** @description Decrypted immutable case correspondence returned only after access and visibility checks. */
+        SupportCaseMessage: {
+            uid: components["schemas"]["Uuid"];
+            case_uid: components["schemas"]["Uuid"];
+            author: components["schemas"]["SupportReporter"];
+            /** @enum {string} */
+            visibility: "public" | "internal";
+            body: string;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated immutable message page in ascending creation order. */
+        SupportCaseMessagePage: {
+            items: components["schemas"]["SupportCaseMessage"][];
+            next_cursor: string | null;
+        };
+        /** @description Multipart attachment upload. The optional represented uploader is accepted only from a service credential and must belong to its Project. */
+        CreateSupportCaseAttachmentRequest: {
+            /** Format: binary */
+            file: string;
+            uploader_project_user_uid?: components["schemas"]["Uuid"];
+        };
+        /** @description Safe metadata for encrypted customer-supplied content. The SHA-256 digest supports incident coordination and integrity checks, not authentication. */
+        SupportCaseAttachment: {
+            uid: components["schemas"]["Uuid"];
+            case_uid: components["schemas"]["Uuid"];
+            filename: string;
+            media_type: string;
+            byte_count: number;
+            sha256: string;
+            uploaded_by: components["schemas"]["SupportReporter"];
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated encrypted-attachment metadata page. */
+        SupportCaseAttachmentPage: {
+            items: components["schemas"]["SupportCaseAttachment"][];
+            next_cursor: string | null;
+        };
+        /** @description Generic operator-managed link to one external system record. Identifiers and URLs are encrypted and never copied into case-event or audit metadata. */
+        CreateSupportCaseExternalReferenceRequest: {
+            provider: string;
+            external_id: string;
+            /** Format: uri */
+            url?: string;
+            label?: string;
+        };
+        /** @description Decrypted operator-only external-record link. It is coordination metadata, not a source of authorization or case lifecycle state. */
+        SupportCaseExternalReference: {
+            uid: components["schemas"]["Uuid"];
+            case_uid: components["schemas"]["Uuid"];
+            provider: string;
+            external_id: string;
+            /** Format: uri */
+            url?: string;
+            label?: string;
+            /** Format: uuid */
+            created_by_member_uid?: string | null;
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated operator-only external-reference page. */
+        SupportCaseExternalReferencePage: {
+            items: components["schemas"]["SupportCaseExternalReference"][];
+            next_cursor: string | null;
+        };
+        /** @description Immutable safe lifecycle fact. Payloads contain routing identifiers and before/after states only, never encrypted customer content or external identifiers. */
+        SupportCaseEvent: {
+            uid: components["schemas"]["Uuid"];
+            case_uid: components["schemas"]["Uuid"];
+            type: string;
+            actor: components["schemas"]["SupportReporter"];
+            /** @enum {string} */
+            visibility: "public" | "internal";
+            payload: {
+                [key: string]: unknown;
+            };
+            created_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Cursor-paginated append-only Support Case event page in ascending creation order. */
+        SupportCaseEventPage: {
+            items: components["schemas"]["SupportCaseEvent"][];
+            next_cursor: string | null;
         };
         /** @description Fields used to provision a Project-scoped application identity. */
         CreateProjectUserRequest: {
@@ -1051,7 +3028,7 @@ export interface components {
             uid: components["schemas"]["Uuid"];
             action: string;
             /** @enum {string} */
-            actor_type: "tenant_member" | "project_user" | "api_key" | "system";
+            actor_type: "tenant_member" | "project_user" | "service_account" | "system";
             /** Format: uuid */
             actor_uid?: string | null;
             target_type?: string | null;
@@ -1078,20 +3055,76 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
+        /** @description The caller exhausted a shared rate-limit policy and may retry after the indicated number of seconds. */
+        RateLimited: {
+            headers: {
+                /** @description Whole seconds until the current rate-limit window resets. */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description OAuth-standard error response. Authorization-endpoint errors use trusted redirects after exact client validation; token, UserInfo, and revocation endpoints use this JSON shape. */
+        OAuthError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["OAuthError"];
+            };
+        };
     };
     parameters: {
-        /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
+        /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
         Origin: string;
         /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
         Cursor: string;
         /** @description Maximum number of records to return. */
         Limit: number;
+        /** @description Tenant Member identifier scoped to the authenticated Tenant. */
+        MemberUid: components["schemas"]["Uuid"];
+        /** @description Tenant invitation identifier. Acceptance additionally requires its one-time token. */
+        InvitationUid: components["schemas"]["Uuid"];
+        /** @description Management-console session identifier owned by the authenticated Tenant Member. */
+        MemberSessionUid: components["schemas"]["Uuid"];
+        /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+        LoginAttemptUid: components["schemas"]["Uuid"];
+        /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+        LoginAttemptClientSecret: string;
+        /** @description WebAuthn credential metadata identifier owned by the authenticated Tenant Member. */
+        TenantMemberWebAuthnCredentialUid: components["schemas"]["Uuid"];
+        /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+        IdempotencyKey: string;
+        /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+        IfMatch: string;
+        /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+        OAuthApplicationUid: components["schemas"]["Uuid"];
+        /** @description Safe OAuth client-secret metadata identifier inside one OAuth Application. */
+        OAuthClientSecretUid: components["schemas"]["Uuid"];
+        /** @description OAuth consent identifier owned by the authenticated Tenant Member. */
+        OAuthConsentUid: components["schemas"]["Uuid"];
+        /** @description Resource Server identifier scoped to the authenticated Tenant. */
+        ResourceServerUid: components["schemas"]["Uuid"];
+        /** @description Immutable delegated-scope resource identifier inside one Resource Server. */
+        ResourceServerScopeUid: components["schemas"]["Uuid"];
+        /** @description OAuth Application to Resource Server grant identifier scoped to the authenticated Tenant. */
+        OAuthApplicationGrantUid: components["schemas"]["Uuid"];
         /** @description Project authentication-boundary identifier. */
         ProjectUid: components["schemas"]["Uuid"];
         /** @description Allowed-origin identifier inside the Project. */
         OriginUid: components["schemas"]["Uuid"];
-        /** @description Project API key identifier. */
-        KeyUid: components["schemas"]["Uuid"];
+        /** @description Stable workload-identity identifier inside the Project. */
+        ServiceAccountUid: components["schemas"]["Uuid"];
+        /** @description Expiring service-account credential version identifier. */
+        ServiceCredentialUid: components["schemas"]["Uuid"];
+        /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+        SupportCaseUid: components["schemas"]["Uuid"];
+        /** @description Encrypted attachment identifier inside one accessible Support Case. */
+        SupportCaseAttachmentUid: components["schemas"]["Uuid"];
+        /** @description Generic external-record link identifier inside one Tenant-accessible Support Case. */
+        SupportCaseExternalReferenceUid: components["schemas"]["Uuid"];
         /** @description Project User identifier inside the Project. */
         UserUid: components["schemas"]["Uuid"];
         /** @description Enrolled FIDO credential identifier. */
@@ -1105,6 +3138,14 @@ export interface components {
     headers: {
         /** @description HttpOnly console session cookie. Production deployments also set Secure and SameSite attributes. */
         SetCookie: string;
+        /** @description Public metadata cache policy; clients must still honor key rotation and refresh after this interval. */
+        PublicMetadataCache: string;
+        /** @description Browser navigation target selected only after exact redirect validation. */
+        RedirectLocation: string;
+        /** @description Relative location of the created resource. */
+        ResourceLocation: string;
+        /** @description Strong quoted decimal representation version used for optimistic concurrency. */
+        ResourceETag: string;
     };
     pathItems: never;
 }
@@ -1147,12 +3188,174 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    getOpenIdConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OpenID Provider metadata */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PublicMetadataCache"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenIdConfiguration"];
+                };
+            };
+        };
+    };
+    getOAuthJwks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON Web Key Set */
+            200: {
+                headers: {
+                    "Cache-Control": components["headers"]["PublicMetadataCache"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JsonWebKeySet"];
+                };
+            };
+            503: components["responses"]["OAuthError"];
+        };
+    };
+    authorizeOAuthApplication: {
+        parameters: {
+            query: {
+                /** @description OAuth response type; only code is supported. */
+                response_type: "code";
+                /** @description Opaque identifier of an active OAuth Application. */
+                client_id: string;
+                /** @description Exact registered redirect URI; no wildcard or prefix matching occurs. */
+                redirect_uri: string;
+                /** @description Space-delimited OpenID scopes; openid is required. */
+                scope: string;
+                /** @description Exact Resource Server identifier required when requesting delegated scopes. One authorization request targets at most one Resource Server. */
+                resource?: string;
+                /** @description Client-generated correlation and CSRF value returned unchanged. */
+                state: string;
+                /** @description Client-generated replay value embedded in the ID token. */
+                nonce: string;
+                /** @description Base64url SHA-256 digest of the PKCE verifier. */
+                code_challenge: string;
+                /** @description PKCE transformation; only S256 is accepted. */
+                code_challenge_method: "S256";
+                /** @description Authorization response encoding; only query is supported. */
+                response_mode?: "query";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Browser continues to the consent UI or returns an OAuth error to the trusted client */
+            303: {
+                headers: {
+                    Location: components["headers"]["RedirectLocation"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Local HTML error because the client or redirect URI was not trusted */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    exchangeOAuthAuthorizationCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["OAuthTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Access and ID tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthTokenResponse"];
+                };
+            };
+            400: components["responses"]["OAuthError"];
+            401: components["responses"]["OAuthError"];
+            503: components["responses"]["OAuthError"];
+        };
+    };
+    getOAuthUserInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized OpenID claims */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthUserInfo"];
+                };
+            };
+            401: components["responses"]["OAuthError"];
+        };
+    };
+    revokeOAuthToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": components["schemas"]["OAuthRevocationRequest"];
+            };
+        };
+        responses: {
+            /** @description Revocation request processed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["OAuthError"];
+            401: components["responses"]["OAuthError"];
+        };
+    };
     signup: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path?: never;
             cookie?: never;
@@ -1177,23 +3380,128 @@ export interface operations {
             422: components["responses"]["Error"];
         };
     };
-    login: {
+    createTenantMemberLoginAttempt: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LoginRequest"];
+                "application/json": components["schemas"]["TenantMemberLoginAttemptRequest"];
             };
         };
         responses: {
-            /** @description Authenticated */
+            /** @description Non-enumerating login attempt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberLoginAttempt"];
+                };
+            };
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    verifyTenantMemberLoginPassword: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Password factor verified */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberLoginProgress"];
+                };
+            };
+            401: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createTenantMemberWebAuthnAuthenticationCeremony: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnModeRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn authentication ceremony */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCeremony"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    verifyTenantMemberWebAuthnAuthentication: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description Strong management session created */
             200: {
                 headers: {
                     "Set-Cookie": components["headers"]["SetCookie"];
@@ -1203,16 +3511,206 @@ export interface operations {
                     "application/json": components["schemas"]["ConsoleSession"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            429: components["responses"]["Error"];
+        };
+    };
+    createInitialTenantMemberWebAuthnRegistrationCeremony: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Initial WebAuthn registration ceremony */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCeremony"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    verifyInitialTenantMemberWebAuthnRegistration: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description One-time client secret returned only when the login attempt was created. Hold it in memory and exclude it from application, proxy, and analytics logs. */
+                "X-ComplicatedAuth-Login-Secret": components["parameters"]["LoginAttemptClientSecret"];
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Five-minute Tenant Member login-attempt identifier. It is not sufficient without the separately returned client secret. */
+                login_attempt_uid: components["parameters"]["LoginAttemptUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description First credential and strong management session created */
+            200: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSession"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    createTenantEmailVerificationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Request accepted without disclosing account existence */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedRequest"];
+                };
+            };
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    verifyTenantMemberEmail: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteEmailVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Email verified */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createTenantPasswordResetRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Request accepted without disclosing account existence */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedRequest"];
+                };
+            };
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    resetTenantMemberPassword: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompletePasswordResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Password reset and sessions revoked */
+            204: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
         };
     };
     logout: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path?: never;
             cookie?: never;
@@ -1250,6 +3748,1298 @@ export interface operations {
             401: components["responses"]["Error"];
         };
     };
+    listTenantMemberSessions: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active Tenant Member sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberSessionPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    revokeTenantMemberSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Management-console session identifier owned by the authenticated Tenant Member. */
+                session_uid: components["parameters"]["MemberSessionUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listTenantMemberWebAuthnCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebAuthn credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCredentialList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createTenantMemberWebAuthnRegistrationCeremony: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn registration ceremony */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCeremony"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    verifyTenantMemberWebAuthnRegistration: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantMemberWebAuthnFinishRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn credential created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCredential"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteTenantMemberWebAuthnCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description WebAuthn credential metadata identifier owned by the authenticated Tenant Member. */
+                credential_uid: components["parameters"]["TenantMemberWebAuthnCredentialUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebAuthn credential removed and other sessions revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    updateTenantMemberWebAuthnCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description WebAuthn credential metadata identifier owned by the authenticated Tenant Member. */
+                credential_uid: components["parameters"]["TenantMemberWebAuthnCredentialUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTenantMemberWebAuthnCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn credential renamed */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberWebAuthnCredential"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    listTenantMembers: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tenant Members */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMemberPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    getTenantMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Tenant Member identifier scoped to the authenticated Tenant. */
+                member_uid: components["parameters"]["MemberUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tenant Member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMember"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    removeTenantMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Tenant Member identifier scoped to the authenticated Tenant. */
+                member_uid: components["parameters"]["MemberUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tenant Member removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateTenantMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Tenant Member identifier scoped to the authenticated Tenant. */
+                member_uid: components["parameters"]["MemberUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTenantMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated Tenant Member */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantMember"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listTenantInvitations: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tenant invitations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantInvitationPage"];
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    createTenantInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTenantInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation created and delivery queued */
+            201: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantInvitation"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    revokeTenantInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Tenant invitation identifier. Acceptance additionally requires its one-time token. */
+                invitation_uid: components["parameters"]["InvitationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitation revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    acceptTenantInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact management-console origin required for the unauthenticated browser submission. */
+                Origin: string;
+            };
+            path: {
+                /** @description Tenant invitation identifier. Acceptance additionally requires its one-time token. */
+                invitation_uid: components["parameters"]["InvitationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptTenantInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Invitation accepted and bootstrap session created */
+            201: {
+                headers: {
+                    "Set-Cookie": components["headers"]["SetCookie"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSession"];
+                };
+            };
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listOAuthApplications: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth Applications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    createOAuthApplication: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOAuthApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description OAuth Application created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplication"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getOAuthApplication: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth Application */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplication"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOAuthApplication: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth Application deleted and credentials revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    updateOAuthApplication: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOAuthApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated OAuth Application */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplication"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    listOAuthClientSecrets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Client-secret metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthClientSecretList"];
+                };
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    createOAuthClientSecret: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOAuthClientSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description Client-secret metadata and one-time value */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthClientSecretSecret"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    revokeOAuthClientSecret: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description Safe OAuth client-secret metadata identifier inside one OAuth Application. */
+                secret_uid: components["parameters"]["OAuthClientSecretUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Client secret revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    inspectOAuthAuthorizationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectOAuthAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Safe consent details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthAuthorizationRequest"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    decideOAuthAuthorizationRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthAuthorizationDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Previously validated client redirect */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthAuthorizationDecision"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listOAuthConsents: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth consent history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthConsentPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    revokeOAuthConsent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description OAuth consent identifier owned by the authenticated Tenant Member. */
+                consent_uid: components["parameters"]["OAuthConsentUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consent and associated access tokens revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listResourceServers: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource Servers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServerPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    createResourceServer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateResourceServerRequest"];
+            };
+        };
+        responses: {
+            /** @description Resource Server created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getResourceServer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource Server */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServer"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteResourceServer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource Server deleted and affected tokens revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    updateResourceServer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateResourceServerRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated Resource Server */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServer"];
+                };
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    listResourceServerScopes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource Server scopes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServerScopeList"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createResourceServerScope: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateResourceServerScopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Resource Server scope created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServerScope"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getResourceServerScope: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+                /** @description Immutable delegated-scope resource identifier inside one Resource Server. */
+                scope_uid: components["parameters"]["ResourceServerScopeUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resource Server scope */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServerScope"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteResourceServerScope: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+                /** @description Immutable delegated-scope resource identifier inside one Resource Server. */
+                scope_uid: components["parameters"]["ResourceServerScopeUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Scope deleted and affected tokens revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    updateResourceServerScope: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource Server identifier scoped to the authenticated Tenant. */
+                resource_server_uid: components["parameters"]["ResourceServerUid"];
+                /** @description Immutable delegated-scope resource identifier inside one Resource Server. */
+                scope_uid: components["parameters"]["ResourceServerScopeUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateResourceServerScopeRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated Resource Server scope */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceServerScope"];
+                };
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    listOAuthApplicationGrants: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth Application grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationGrantList"];
+                };
+            };
+        };
+    };
+    createOAuthApplicationGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateOAuthApplicationGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description OAuth Application grant created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationGrant"];
+                };
+            };
+            400: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getOAuthApplicationGrant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description OAuth Application to Resource Server grant identifier scoped to the authenticated Tenant. */
+                grant_uid: components["parameters"]["OAuthApplicationGrantUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OAuth Application grant */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationGrant"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteOAuthApplicationGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description OAuth Application to Resource Server grant identifier scoped to the authenticated Tenant. */
+                grant_uid: components["parameters"]["OAuthApplicationGrantUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Grant deleted and affected tokens revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    updateOAuthApplicationGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description OAuth Application identifier scoped to the authenticated Tenant. */
+                application_uid: components["parameters"]["OAuthApplicationUid"];
+                /** @description OAuth Application to Resource Server grant identifier scoped to the authenticated Tenant. */
+                grant_uid: components["parameters"]["OAuthApplicationGrantUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOAuthApplicationGrantRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated OAuth Application grant */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationGrant"];
+                };
+            };
+            404: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    createAuthorizationDecision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAuthorizationDecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Allowed or denied authorization decision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizationDecision"];
+                };
+            };
+            401: components["responses"]["OAuthError"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     listProjects: {
         parameters: {
             query?: {
@@ -1279,9 +5069,9 @@ export interface operations {
     createProject: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path?: never;
             cookie?: never;
@@ -1331,9 +5121,9 @@ export interface operations {
     updateProject: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1388,9 +5178,9 @@ export interface operations {
     createOrigin: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1420,9 +5210,9 @@ export interface operations {
     deleteOrigin: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1445,9 +5235,14 @@ export interface operations {
             409: components["responses"]["Error"];
         };
     };
-    listApiKeys: {
+    listServiceAccounts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
             header?: never;
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1457,25 +5252,25 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Keys without secrets */
+            /** @description Project service accounts */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        items: components["schemas"]["ApiKey"][];
-                    };
+                    "application/json": components["schemas"]["ServiceAccountPage"];
                 };
             };
         };
     };
-    createApiKey: {
+    createServiceAccount: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1485,107 +5280,675 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NameRequest"];
+                "application/json": components["schemas"]["CreateServiceAccountRequest"];
             };
         };
         responses: {
-            /** @description Key and one-time secret */
+            /** @description Service account created */
             201: {
                 headers: {
-                    "Cache-Control"?: "no-store";
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKeySecret"];
+                    "application/json": components["schemas"]["ServiceAccount"];
                 };
             };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
-    revokeApiKey: {
+    getServiceAccount: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
-            };
+            header?: never;
             path: {
                 /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
-                /** @description Project API key identifier. */
-                key_uid: components["parameters"]["KeyUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Key revoked */
+            /** @description Service account */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceAccount"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteServiceAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Service account deleted and credentials revoked */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            412: components["responses"]["Error"];
         };
     };
-    renameApiKey: {
+    updateServiceAccount: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
-                /** @description Project API key identifier. */
-                key_uid: components["parameters"]["KeyUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["NameRequest"];
+                "application/json": components["schemas"]["UpdateServiceAccountRequest"];
             };
         };
         responses: {
-            /** @description Key renamed */
+            /** @description Service account updated */
             200: {
                 headers: {
+                    ETag: components["headers"]["ResourceETag"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKey"];
+                    "application/json": components["schemas"]["ServiceAccount"];
                 };
             };
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
-    rotateApiKey: {
+    listServiceCredentials: {
         parameters: {
-            query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
             };
+            header?: never;
             path: {
                 /** @description Project authentication-boundary identifier. */
                 project_uid: components["parameters"]["ProjectUid"];
-                /** @description Project API key identifier. */
-                key_uid: components["parameters"]["KeyUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description New one-time secret */
+            /** @description Credential metadata */
             200: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceCredentialList"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createServiceCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateServiceCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description Credential and one-time secret */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
                     "Cache-Control"?: "no-store";
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ApiKeySecret"];
+                    "application/json": components["schemas"]["ServiceCredentialSecret"];
                 };
             };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getServiceCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+                /** @description Expiring service-account credential version identifier. */
+                credential_uid: components["parameters"]["ServiceCredentialUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credential metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceCredential"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    revokeServiceCredential: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Project authentication-boundary identifier. */
+                project_uid: components["parameters"]["ProjectUid"];
+                /** @description Stable workload-identity identifier inside the Project. */
+                service_account_uid: components["parameters"]["ServiceAccountUid"];
+                /** @description Expiring service-account credential version identifier. */
+                credential_uid: components["parameters"]["ServiceCredentialUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credential is revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listSupportCases: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Exact Support Case lifecycle filter. */
+                status?: components["schemas"]["SupportCaseStatus"];
+                /** @description Exact customer-intent category filter. */
+                category?: components["schemas"]["SupportCaseCategory"];
+                /** @description Console-only exact Project filter; service credentials are always confined to their own Project. */
+                project_uid?: components["schemas"]["Uuid"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accessible Support Cases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCasePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createSupportCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSupportCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Support Case created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCase"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getSupportCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Support Case */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCase"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateSupportCase: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSupportCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description Support Case updated */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ResourceETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCase"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            412: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listSupportCaseMessages: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Support Case messages */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseMessagePage"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createSupportCaseMessage: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSupportCaseMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Message created */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseMessage"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listSupportCaseAttachments: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseAttachmentPage"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createSupportCaseAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CreateSupportCaseAttachmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Attachment stored */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseAttachment"];
+                };
+            };
+            409: components["responses"]["Error"];
+            413: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getSupportCaseAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Encrypted attachment identifier inside one accessible Support Case. */
+                attachment_uid: components["parameters"]["SupportCaseAttachmentUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attachment metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseAttachment"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    downloadSupportCaseAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Encrypted attachment identifier inside one accessible Support Case. */
+                attachment_uid: components["parameters"]["SupportCaseAttachmentUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Decrypted attachment bytes */
+            200: {
+                headers: {
+                    "Cache-Control"?: "private, no-store";
+                    "Content-Disposition"?: string;
+                    "X-Content-Type-Options"?: "nosniff";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listSupportCaseEvents: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Support Case events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseEventPage"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    listSupportCaseExternalReferences: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor returned as `next_cursor` by the preceding page. */
+                cursor?: components["parameters"]["Cursor"];
+                /** @description Maximum number of records to return. */
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External references */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseExternalReferencePage"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    createSupportCaseExternalReference: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+                /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSupportCaseExternalReferenceRequest"];
+            };
+        };
+        responses: {
+            /** @description External reference linked */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseExternalReference"];
+                };
+            };
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    deleteSupportCaseExternalReference: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
+            };
+            path: {
+                /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
+                case_uid: components["parameters"]["SupportCaseUid"];
+                /** @description Generic external-record link identifier inside one Tenant-accessible Support Case. */
+                external_reference_uid: components["parameters"]["SupportCaseExternalReferenceUid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description External reference is absent */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: components["responses"]["Error"];
         };
     };
     listProjectUsers: {
@@ -1672,9 +6035,9 @@ export interface operations {
     updateProjectUser: {
         parameters: {
             query?: never;
-            header?: {
-                /** @description Browser origin checked on state-changing management-console requests. Required when the request is authorized by a console session. */
-                Origin?: components["parameters"]["Origin"];
+            header: {
+                /** @description Exact configured management-console origin required on every state-changing browser request, including unauthenticated authentication ceremonies. */
+                Origin: components["parameters"]["Origin"];
             };
             path: {
                 /** @description Project authentication-boundary identifier. */
@@ -1856,7 +6219,8 @@ export interface operations {
                     "application/json": components["schemas"]["LoginAttemptSecret"];
                 };
             };
-            429: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
         };
     };
     verifyProjectUserLoginPassword: {
@@ -1888,6 +6252,8 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["Error"];
         };
     };
     beginProjectUserFidoLogin: {

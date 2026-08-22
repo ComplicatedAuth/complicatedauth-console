@@ -152,10 +152,10 @@ export default function ProjectsPage() {
                   </dt>
                 </div>
                 <div>
-                  <dd className="text-xl font-bold">{project.api_key_count}</dd>
+                  <dd className="text-xl font-bold">{project.service_account_count}</dd>
                   <dt className="mt-1 flex items-center justify-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
                     <KeyIcon className="size-3" />
-                    Keys
+                    Service accounts
                   </dt>
                 </div>
               </dl>

@@ -4,14 +4,19 @@ import {
   ArrowRightStartOnRectangleIcon,
   ChevronDownIcon,
   Cog6ToothIcon,
+  EnvelopeIcon,
   FolderIcon,
+  IdentificationIcon,
+  InboxStackIcon,
   PlusIcon,
-  QuestionMarkCircleIcon,
+  ServerStackIcon,
   Squares2X2Icon,
   UserCircleIcon,
+  UserGroupIcon,
 } from "@heroicons/react/20/solid";
 import { usePathname, useRouter } from "next/navigation";
-import { api, type Project, type Session } from "@/lib/api";
+import { useState } from "react";
+import { api, message, type Project, type Session } from "@/lib/api";
 import { BrandLogo } from "./brand-logo";
 import {
   Dropdown,
@@ -43,10 +48,29 @@ export function AppShell({
 }) {
   const pathname = usePathname(),
     router = useRouter();
+  const [verificationBusy, setVerificationBusy] = useState(false),
+    [verificationNotice, setVerificationNotice] = useState("");
+  const canManageProjects = ["owner", "admin", "developer"].includes(
+    session.member.role,
+  );
+  const canManageSupport = ["owner", "admin", "support"].includes(
+    session.member.role,
+  );
   async function logout() {
     await api("/v1/console/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  }
+  async function resendVerification() {
+    setVerificationBusy(true);
+    try {
+      await api("/v1/console/email-verification-requests", { method: "POST", body: JSON.stringify({ email: session.member.email }) });
+      setVerificationNotice("Verification email requested. Check your inbox.");
+    } catch (caught) {
+      setVerificationNotice(message(caught));
+    } finally {
+      setVerificationBusy(false);
+    }
   }
   const sidebar = (
     <Sidebar className="bg-[#0e1129] text-white">
@@ -63,7 +87,7 @@ export function AppShell({
               {session.tenant.name}
             </div>
             <div className="truncate text-xs text-zinc-400">
-              Owner workspace
+              {session.member.role} workspace
             </div>
           </div>
           <ChevronDownIcon className="size-4 text-zinc-400" />
@@ -78,13 +102,42 @@ export function AppShell({
             <Squares2X2Icon />
             All projects
           </SidebarItem>
-          <SidebarItem
-            href="/app/projects/new"
-            current={pathname === "/app/projects/new"}
-          >
-            <PlusIcon />
-            Create project
+          {canManageProjects && (
+            <SidebarItem
+              href="/app/projects/new"
+              current={pathname === "/app/projects/new"}
+            >
+              <PlusIcon />
+              Create project
+            </SidebarItem>
+          )}
+          <SidebarItem href="/app/team" current={pathname === "/app/team"}>
+            <UserGroupIcon />
+            Tenant members
           </SidebarItem>
+          <SidebarItem
+            href="/app/oauth-applications"
+            current={pathname.startsWith("/app/oauth-applications")}
+          >
+            <IdentificationIcon />
+            OAuth applications
+          </SidebarItem>
+          <SidebarItem
+            href="/app/resource-servers"
+            current={pathname.startsWith("/app/resource-servers")}
+          >
+            <ServerStackIcon />
+            Resource servers
+          </SidebarItem>
+          {canManageSupport && (
+            <SidebarItem
+              href="/app/support-cases"
+              current={pathname.startsWith("/app/support-cases")}
+            >
+              <InboxStackIcon />
+              Support cases
+            </SidebarItem>
+          )}
         </SidebarSection>
         <SidebarSection>
           <SidebarHeading>Projects</SidebarHeading>
@@ -112,10 +165,6 @@ export function AppShell({
             <FolderIcon />
             Documentation
           </SidebarItem>
-          <SidebarItem href="#">
-            <QuestionMarkCircleIcon />
-            Support
-          </SidebarItem>
         </SidebarSection>
       </SidebarBody>
       <SidebarFooter>
@@ -135,7 +184,7 @@ export function AppShell({
             <ChevronDownIcon className="size-4 text-zinc-400" />
           </DropdownButton>
           <DropdownMenu anchor="top start" className="min-w-64">
-            <DropdownItem>
+            <DropdownItem href="/app/account">
               <UserCircleIcon />
               My account
             </DropdownItem>
@@ -158,6 +207,12 @@ export function AppShell({
       sidebar={sidebar}
       mobileBrand={<BrandLogo className="text-[#0e1129] dark:text-white" />}
     >
+      {!session.member.email_verified && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-100 dark:ring-amber-800/50">
+          <div className="flex items-center gap-2"><EnvelopeIcon className="size-5" /><span>{verificationNotice || "Verify your email address so account ownership is explicit."}</span></div>
+          <button type="button" className="font-semibold underline disabled:opacity-50" disabled={verificationBusy} onClick={() => void resendVerification()}>{verificationBusy ? "Requesting…" : "Resend verification"}</button>
+        </div>
+      )}
       {children}
     </SidebarLayout>
   );

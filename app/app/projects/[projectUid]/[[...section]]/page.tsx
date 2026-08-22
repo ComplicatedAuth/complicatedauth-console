@@ -1,7 +1,7 @@
 import { ProjectConsole } from "@/components/project-console";
 import { notFound, redirect } from "next/navigation";
 
-const sections = ["overview", "settings", "api-keys", "users", "activity"];
+const sections = ["overview", "settings", "service-accounts", "users", "activity"];
 
 export default async function ProjectPage({
   params,

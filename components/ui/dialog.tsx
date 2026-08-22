@@ -21,19 +21,17 @@ export function Dialog({
   size?: keyof typeof sizes;
   className?: string;
   children: React.ReactNode;
-} & Omit<Headless.DialogProps, "as" | "className">) {
+  } & Omit<Headless.DialogProps, "as" | "className">) {
   return (
-    <Headless.Dialog {...props} className="relative z-50">
+    <Headless.Dialog {...props} className="fixed inset-0 z-50">
       <Headless.DialogBackdrop
-        transition
-        className="fixed inset-0 bg-[#0e1129]/45 backdrop-blur-[2px] transition data-closed:opacity-0"
+        className="fixed inset-0 bg-[#0e1129]/45 backdrop-blur-[2px]"
       />
       <div className="fixed inset-0 overflow-y-auto p-4 sm:p-8">
         <div className="flex min-h-full items-center justify-center">
           <Headless.DialogPanel
-            transition
             className={clsx(
-              "w-full rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-zinc-950/10 transition data-closed:translate-y-4 data-closed:scale-95 data-closed:opacity-0 dark:bg-zinc-900 dark:ring-white/10 sm:p-8",
+              "w-full rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10 sm:p-8",
               sizes[size],
               className,
             )}

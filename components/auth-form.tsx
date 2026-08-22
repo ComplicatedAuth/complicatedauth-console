@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { api, message } from "@/lib/api";
+import {
+  completeTenantMemberLogin,
+  type WebAuthnMode,
+} from "@/lib/console-webauthn";
 import { AuthLayout } from "./auth-layout";
 import { BrandLogo } from "./brand-logo";
 import { Button } from "./ui/button";
@@ -17,23 +21,51 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [showPassword, setShowPassword] = useState(false),
-    [password, setPassword] = useState("");
+    [password, setPassword] = useState(""),
+    [pendingMode, setPendingMode] = useState<WebAuthnMode | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const submitter = (event.nativeEvent as SubmitEvent)
+      .submitter as HTMLButtonElement | null;
+    const authenticatorMode: WebAuthnMode =
+      submitter?.value === "security_key" ? "security_key" : "passkey";
+    setPendingMode(authenticatorMode);
     try {
-      await api(`/v1/console/auth/${mode}`, {
-        method: "POST",
-        body: JSON.stringify(
-          Object.fromEntries(new FormData(event.currentTarget)),
-        ),
+      if (signup) {
+        await api("/v1/console/auth/signup", {
+          method: "POST",
+          body: JSON.stringify(values),
+        });
+        router.push(
+          "/setup-security?return_to=%2Fapp%2Fprojects%2Fnew",
+        );
+        router.refresh();
+        return;
+      }
+
+      await completeTenantMemberLogin({
+        email: String(values.email ?? ""),
+        password: String(values.password ?? ""),
+        mode: authenticatorMode,
       });
-      router.push(signup ? "/app/projects/new" : "/app/projects");
+      const requestedReturn = new URLSearchParams(window.location.search).get(
+        "return_to",
+      );
+      const returnTo =
+        requestedReturn?.startsWith("/") &&
+        !requestedReturn.startsWith("//") &&
+        !requestedReturn.includes("\\")
+          ? requestedReturn
+          : null;
+      router.push(returnTo ?? "/app/projects");
       router.refresh();
     } catch (caught) {
       setError(message(caught));
       setBusy(false);
+      setPendingMode(null);
     }
   }
   return (
@@ -47,8 +79,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <Heading>{signup ? "Start your workspace" : "Sign in"}</Heading>
           <Text className="mt-2 text-base/7">
             {signup
-              ? "Your Tenant and owner account are created together. Then we’ll set up your first Project."
-              : "Access your ComplicatedAuth management console."}
+              ? "Your Tenant and owner account are created together. We’ll email a separate ownership-verification link."
+              : "Verify your password, then use an enrolled passkey or security key. A password alone never creates a management session."}
           </Text>
         </div>
         {error && (
@@ -125,20 +157,43 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </div>
           )}
         </Field>
+        {!signup && (
+          <div className="-mt-2 text-right">
+            <Link className="text-sm font-semibold text-[#c93324] hover:underline dark:text-[#ff8879]" href="/forgot-password">
+              Forgot password?
+            </Link>
+          </div>
+        )}
         <Button
           type="submit"
           color="coral"
           disabled={busy}
+          name={signup ? undefined : "authenticator_mode"}
+          value={signup ? undefined : "passkey"}
           className="mt-1 w-full"
         >
           {busy
             ? signup
               ? "Creating account…"
-              : "Signing in…"
+              : pendingMode === "security_key"
+                ? "Waiting for security key…"
+                : "Waiting for passkey…"
             : signup
               ? "Create account"
-              : "Sign in"}
+              : "Continue with passkey"}
         </Button>
+        {!signup && (
+          <Button
+            type="submit"
+            outline
+            disabled={busy}
+            name="authenticator_mode"
+            value="security_key"
+            className="w-full"
+          >
+            Use a security key
+          </Button>
+        )}
         <Text className="text-center">
           {signup ? "Already have an account?" : "Don’t have an account?"}{" "}
           <Link

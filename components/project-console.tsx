@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowPathIcon,
   ClipboardDocumentIcon,
   Cog6ToothIcon,
   EllipsisHorizontalIcon,
@@ -9,7 +8,6 @@ import {
   KeyIcon,
   LockClosedIcon,
   MagnifyingGlassIcon,
-  PencilSquareIcon,
   PlusIcon,
   ShieldCheckIcon,
   TrashIcon,
@@ -21,14 +19,16 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
-  type ApiKey,
-  type ApiKeySecret,
   type AuditEvent,
   message,
   type Origin,
   type Project,
   type ProjectUser,
+  type ServiceAccount,
+  type ServiceCredential,
+  type ServiceCredentialSecret,
 } from "@/lib/api";
+import { ServiceAccountsView } from "./service-accounts-view";
 import {
   EnvironmentBadge,
   MetricCard,
@@ -61,7 +61,7 @@ import { Mono, Text } from "./ui/typography";
 const sections = [
   { id: "overview", label: "Overview" },
   { id: "settings", label: "Settings" },
-  { id: "api-keys", label: "API Keys" },
+  { id: "service-accounts", label: "Service accounts" },
   { id: "users", label: "Users" },
   { id: "activity", label: "Activity" },
 ] as const;
@@ -83,13 +83,14 @@ export function ProjectConsole({
     : "overview";
   const [project, setProject] = useState<Project | null>(null),
     [origins, setOrigins] = useState<Origin[]>([]),
-    [keys, setKeys] = useState<ApiKey[]>([]),
+    [serviceAccounts, setServiceAccounts] = useState<ServiceAccount[]>([]),
+    [serviceCredentials, setServiceCredentials] = useState<Record<string, ServiceCredential[]>>({}),
     [users, setUsers] = useState<ProjectUser[]>([]),
     [events, setEvents] = useState<AuditEvent[]>([]),
     [userNext, setUserNext] = useState(""),
     [eventNext, setEventNext] = useState(""),
     [error, setError] = useState(""),
-    [secret, setSecret] = useState<ApiKeySecret | null>(null),
+    [secret, setSecret] = useState<ServiceCredentialSecret | null>(null),
     [notice, setNotice] = useState("");
   const load = useCallback(async () => {
     try {
@@ -101,14 +102,23 @@ export function ProjectConsole({
           (await api<{ items: Origin[] }>(`/v1/projects/${projectUid}/origins`))
             .items,
         );
-      if (active === "api-keys" || active === "overview")
-        setKeys(
-          (
-            await api<{ items: ApiKey[] }>(
-              `/v1/projects/${projectUid}/api-keys`,
-            )
-          ).items,
+      if (active === "service-accounts") {
+        const accountPage = await api<Page<ServiceAccount>>(
+          `/v1/projects/${projectUid}/service-accounts`,
         );
+        setServiceAccounts(accountPage.items);
+        const credentialEntries = await Promise.all(
+          accountPage.items.map(async (account) => [
+            account.uid,
+            (
+              await api<{ items: ServiceCredential[] }>(
+                `/v1/projects/${projectUid}/service-accounts/${account.uid}/credentials?limit=100`,
+              )
+            ).items,
+          ] as const),
+        );
+        setServiceCredentials(Object.fromEntries(credentialEntries));
+      }
       if (active === "users" || active === "overview") {
         const page = await api<Page<ProjectUser>>(
           `/v1/projects/${projectUid}/users`,
@@ -231,7 +241,6 @@ export function ProjectConsole({
           <Overview
             project={project}
             origins={origins}
-            keys={keys}
             users={users}
             events={events}
           />
@@ -244,10 +253,11 @@ export function ProjectConsole({
             onError={setError}
           />
         )}
-        {active === "api-keys" && (
-          <KeysView
+        {active === "service-accounts" && (
+          <ServiceAccountsView
             projectUid={projectUid}
-            keys={keys}
+            accounts={serviceAccounts}
+            credentials={serviceCredentials}
             onSecret={setSecret}
             onDone={done}
             onError={setError}
@@ -287,13 +297,11 @@ function Overview({
   project,
   origins,
   users,
-  keys,
   events,
 }: {
   project: Project;
   origins: Origin[];
   users: ProjectUser[];
-  keys: ApiKey[];
   events: AuditEvent[];
 }) {
   return (
@@ -318,11 +326,9 @@ function Overview({
         />
         <MetricCard
           icon={<KeyIcon />}
-          value={project.api_key_count}
-          label="Active API keys"
-          note={
-            keys.length ? "Server access enabled" : "Create a key to connect"
-          }
+          value={project.service_account_count}
+          label="Active service accounts"
+          note="Scoped workload identities"
         />
       </div>
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -389,16 +395,16 @@ function Overview({
         <div>
           <h2 className="font-semibold">Connect your application backend</h2>
           <p className="mt-1 text-sm/6 text-white/55">
-            Use a Project API key for user provisioning, password
-            authentication, and passkey ceremonies.
+            Use a scoped, expiring service credential for user provisioning,
+            authentication, and session operations.
           </p>
         </div>
         <Button
-          href={`/app/projects/${project.uid}/api-keys`}
+          href={`/app/projects/${project.uid}/service-accounts`}
           outline
           className="border-white/20 bg-transparent text-white hover:bg-white/5"
         >
-          Manage API keys
+          Manage service accounts
         </Button>
       </div>
     </div>
@@ -614,208 +620,11 @@ function SettingsView({
   );
 }
 
-function KeysView({
-  projectUid,
-  keys,
-  onSecret,
-  onDone,
-  onError,
-}: {
-  projectUid: string;
-  keys: ApiKey[];
-  onSecret: (secret: ApiKeySecret) => void;
-  onDone: (text: string) => Promise<void>;
-  onError: (text: string) => void;
-}) {
-  const [action, setAction] = useState<{
-      type: "rotate" | "revoke";
-      key: ApiKey;
-    } | null>(null),
-    [rename, setRename] = useState<ApiKey | null>(null),
-    [creating, setCreating] = useState(false);
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    setCreating(true);
-    try {
-      const key = await api<ApiKeySecret>(
-        `/v1/projects/${projectUid}/api-keys`,
-        {
-          method: "POST",
-          body: JSON.stringify(Object.fromEntries(new FormData(form))),
-        },
-      );
-      form.reset();
-      await onDone("API key created");
-      onSecret(key);
-    } catch (caught) {
-      onError(message(caught));
-    } finally {
-      setCreating(false);
-    }
-  }
-  async function confirmAction() {
-    if (!action) return;
-    try {
-      if (action.type === "rotate") {
-        const key = await api<ApiKeySecret>(
-          `/v1/projects/${projectUid}/api-keys/${action.key.uid}/rotate`,
-          { method: "POST" },
-        );
-        await onDone("API key rotated");
-        onSecret(key);
-      } else {
-        await api(`/v1/projects/${projectUid}/api-keys/${action.key.uid}`, {
-          method: "DELETE",
-        });
-        await onDone("API key revoked");
-      }
-    } catch (caught) {
-      onError(message(caught));
-    } finally {
-      setAction(null);
-    }
-  }
-  async function renameKey(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!rename) return;
-    try {
-      await api(`/v1/projects/${projectUid}/api-keys/${rename.uid}`, {
-        method: "PATCH",
-        body: JSON.stringify(
-          Object.fromEntries(new FormData(event.currentTarget)),
-        ),
-      });
-      setRename(null);
-      await onDone("API key renamed");
-    } catch (caught) {
-      onError(message(caught));
-    }
-  }
-  return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeading
-        eyebrow="API Keys"
-        title="Server-to-server access"
-        description="Secrets are shown once. Store them only in your relying-party backend."
-      />
-      <Panel title="Create API key" className="mt-7">
-        <form onSubmit={create} className="flex flex-col gap-3 p-5 sm:flex-row">
-          <Field className="flex-1">
-            <Label>Key name</Label>
-            <Input name="name" required placeholder="Production backend" />
-          </Field>
-          <Button
-            type="submit"
-            color="coral"
-            disabled={creating}
-            className="sm:self-end"
-          >
-            <PlusIcon />
-            {creating ? "Creating…" : "Create key"}
-          </Button>
-        </form>
-      </Panel>
-      <Panel className="mt-5">
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Name</TableHeader>
-              <TableHeader>Prefix</TableHeader>
-              <TableHeader>Status</TableHeader>
-              <TableHeader>Last used</TableHeader>
-              <TableHeader />
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {keys.map((key) => (
-              <TableRow key={key.uid}>
-                <TableCell className="font-medium">{key.name}</TableCell>
-                <TableCell>
-                  <Mono className="text-zinc-500 dark:text-zinc-400">
-                    {key.prefix}••••••••
-                  </Mono>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge value={key.status} />
-                </TableCell>
-                <TableCell className="text-zinc-500 dark:text-zinc-400">
-                  {key.last_used_at ? formatDate(key.last_used_at) : "Never"}
-                </TableCell>
-                <TableCell>
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      plain
-                      title="Rename"
-                      aria-label={`Rename ${key.name}`}
-                      disabled={key.status === "revoked"}
-                      onClick={() => setRename(key)}
-                    >
-                      <PencilSquareIcon />
-                    </Button>
-                    <Button
-                      plain
-                      title="Rotate"
-                      disabled={key.status === "revoked"}
-                      onClick={() => setAction({ type: "rotate", key })}
-                    >
-                      <ArrowPathIcon />
-                    </Button>
-                    <Button
-                      plain
-                      title="Revoke"
-                      disabled={key.status === "revoked"}
-                      onClick={() => setAction({ type: "revoke", key })}
-                    >
-                      <TrashIcon className="text-red-500" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {keys.length === 0 && (
-          <Text className="p-8 text-center">No API keys yet.</Text>
-        )}
-      </Panel>
-      <ConfirmDialog
-        open={action !== null}
-        title={`${action?.type === "rotate" ? "Rotate" : "Revoke"} “${action?.key.name ?? "API key"}”?`}
-        description="The current secret will stop working immediately. This action cannot be undone."
-        confirmLabel={action?.type === "rotate" ? "Rotate key" : "Revoke key"}
-        danger={action?.type === "revoke"}
-        onClose={() => setAction(null)}
-        onConfirm={confirmAction}
-      />
-      <Dialog open={rename !== null} onClose={() => setRename(null)} size="sm">
-        <form onSubmit={renameKey}>
-          <DialogTitle>Rename API key</DialogTitle>
-          <DialogBody>
-            <Field>
-              <Label>Key name</Label>
-              <Input name="name" defaultValue={rename?.name} required />
-            </Field>
-          </DialogBody>
-          <DialogActions>
-            <Button plain onClick={() => setRename(null)}>
-              Cancel
-            </Button>
-            <Button type="submit" color="coral">
-              Save name
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </div>
-  );
-}
-
 function SecretDialog({
   secret,
   close,
 }: {
-  secret: ApiKeySecret | null;
+  secret: ServiceCredentialSecret | null;
   close: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -826,7 +635,7 @@ function SecretDialog({
   if (!secret) return null;
   return (
     <Dialog open onClose={handleClose} size="lg">
-      <DialogTitle>Copy this API key now</DialogTitle>
+      <DialogTitle>Copy this service credential now</DialogTitle>
       <DialogDescription>
         This one-time secret will never be shown again. Save it in a server-side
         secret manager.
@@ -850,12 +659,12 @@ function SecretDialog({
           </Button>
         </div>
         <div className="mt-4 rounded-lg bg-amber-50 px-4 py-3 text-sm/6 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-200 dark:ring-amber-800/40">
-          Never commit this key to source control or expose it in browser code.
+          Never commit this credential to source control or expose it in browser code.
         </div>
       </DialogBody>
       <DialogActions>
         <Button outline onClick={handleClose}>
-          I have saved the key
+          I have saved the credential
         </Button>
       </DialogActions>
     </Dialog>
@@ -1281,7 +1090,7 @@ function EventRow({
             color={
               event.actor_type === "tenant_member"
                 ? "violet"
-                : event.actor_type === "api_key"
+                : event.actor_type === "service_account"
                   ? "blue"
                   : "zinc"
             }

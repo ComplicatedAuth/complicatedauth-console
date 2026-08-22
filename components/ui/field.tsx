@@ -77,3 +77,15 @@ export const Select = forwardRef<HTMLSelectElement, Headless.SelectProps>(
     );
   },
 );
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  Headless.TextareaProps
+>(function Textarea({ className, ...props }, ref) {
+  return (
+    <Headless.Textarea
+      ref={ref}
+      {...props}
+      className={clsx(control, "min-h-24 resize-y", className)}
+    />
+  );
+});

@@ -124,7 +124,7 @@ export default function NewProject() {
                 <Input
                   name="rp_id"
                   required
-                  defaultValue="localhost"
+                  defaultValue="customer.localhost"
                   className="font-mono"
                 />
                 <Description>
@@ -141,7 +141,7 @@ export default function NewProject() {
                   name="initial_origin"
                   type="url"
                   required
-                  defaultValue="http://localhost:3000"
+                  defaultValue="http://customer.localhost:3001"
                   className="font-mono"
                 />
                 <Description>

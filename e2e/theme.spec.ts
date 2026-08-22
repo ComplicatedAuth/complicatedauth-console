@@ -55,7 +55,23 @@ async function expectFormControlsReadable(scope: Locator) {
 for (const colorScheme of ["light", "dark"] as const) {
   test(`${colorScheme} mode keeps authentication and onboarding forms readable`, async ({
     page,
+    context,
   }) => {
+    const cdp = await context.newCDPSession(page);
+    await cdp.send("WebAuthn.enable");
+    const { authenticatorId } = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      {
+        options: {
+          protocol: "ctap2",
+          transport: "internal",
+          hasResidentKey: true,
+          hasUserVerification: true,
+          isUserVerified: true,
+          automaticPresenceSimulation: true,
+        },
+      },
+    );
     await page.emulateMedia({ colorScheme });
     await page.goto("/signup");
 
@@ -72,6 +88,11 @@ for (const colorScheme of ["light", "dark"] as const) {
       .getByLabel("Password", { exact: true })
       .fill("a readable theme password");
     await page.getByRole("button", { name: "Create account" }).click();
+    await expect(page).toHaveURL(/\/setup-security\?/);
+    await expectReadable(page.locator("main"));
+    await expectFormControlsReadable(page.locator("main"));
+    await expectReadable(page.getByRole("button", { name: "Create passkey" }));
+    await page.getByRole("button", { name: "Create passkey" }).click();
     await expect(page).toHaveURL(/\/app\/projects\/new$/);
 
     await expectReadable(page.locator("body"));
@@ -89,14 +110,18 @@ for (const colorScheme of ["light", "dark"] as const) {
     await expectReadable(page.getByRole("button", { name: "Save changes" }));
     await expectReadable(page.getByRole("button", { name: "Add Origin" }));
 
-    await page.getByRole("link", { name: "API Keys", exact: true }).click();
-    await expect(page).toHaveURL(/\/api-keys$/);
+    await page.getByRole("link", { name: "Service accounts", exact: true }).click();
+    await expect(page).toHaveURL(/\/service-accounts$/);
     await expectFormControlsReadable(page.locator("main"));
-    await expectReadable(page.getByRole("button", { name: "Create key" }));
+    await expectReadable(
+      page.getByRole("button", { name: "Create service account" }),
+    );
 
     await page.getByRole("link", { name: "Users", exact: true }).click();
     await expect(page).toHaveURL(/\/users$/);
     await expectFormControlsReadable(page.locator("main"));
     await expectReadable(page.getByRole("button", { name: "Create user" }));
+
+    await cdp.send("WebAuthn.removeVirtualAuthenticator", { authenticatorId });
   });
 }

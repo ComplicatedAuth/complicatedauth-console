@@ -14,7 +14,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
             Every authentication boundary, isolated by design.
           </h1>
           <p className="mt-6 max-w-md text-base/7 text-white/55">
-            Manage Projects, relying-party configuration, passkeys, API keys,
+            Manage Projects, relying-party configuration, passkeys, service accounts,
             and audit trails in one focused console.
           </p>
           <div className="mt-9 inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">

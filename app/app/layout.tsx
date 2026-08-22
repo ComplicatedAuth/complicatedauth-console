@@ -9,6 +9,9 @@ export default async function ProtectedLayout({
 }) {
   const session = await serverSession();
   if (!session) redirect("/login");
+  if (session.authentication_assurance !== "strong") {
+    redirect("/setup-security");
+  }
   const projects = await serverProjects();
   return (
     <AppShell session={session} projects={projects}>

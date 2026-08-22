@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 
 const backendURL = process.env.BACKEND_URL ?? "http://localhost:8080";
 const projectUID = process.env.PROJECT_UID;
-const apiKey = process.env.PROJECT_API_KEY;
+const serviceCredential = process.env.SERVICE_CREDENTIAL;
 const port = Number(process.env.RP_PORT ?? 4174);
 const sessions = new Map();
 const logins = new Map();
 
-if (!projectUID || !apiKey)
-  throw new Error("PROJECT_UID and PROJECT_API_KEY are required");
+if (!projectUID || !serviceCredential)
+  throw new Error("PROJECT_UID and SERVICE_CREDENTIAL are required");
 
 const page = `<!doctype html>
 <html lang="en"><meta charset="utf-8"><title>ComplicatedAuth test RP</title>
@@ -50,7 +50,7 @@ async function jsonBody(request) {
 
 async function complicatedAuth(path, body, {loginReference = "", sessionReference = ""} = {}) {
   const headers = {
-    Authorization: `Bearer ${apiKey}`,
+    Authorization: `Bearer ${serviceCredential}`,
     "Content-Type": "application/json",
   };
   if (sessionReference) headers["X-ComplicatedAuth-Session"] = sessionReference;
