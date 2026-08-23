@@ -19,10 +19,10 @@ const session = {
   expires_at: "2026-08-25T00:00:00Z",
 };
 
-function widgetRequest(origin = consoleOrigin) {
-  return new Request(`${consoleOrigin}/api/dokosoko/widget-token`, {
+function widgetRequest(origin = consoleOrigin, requestOrigin = consoleOrigin, host = new URL(consoleOrigin).host) {
+  return new Request(`${requestOrigin}/api/dokosoko/widget-token`, {
     method: "POST",
-    headers: { origin, cookie: "complicatedauth_session=opaque" },
+    headers: { origin, host, cookie: "complicatedauth_session=opaque" },
     body: JSON.stringify({ userId: "browser-forgery", organizationId: "browser-forgery" }),
   });
 }
@@ -69,6 +69,14 @@ test("widget bootstrap route enforces origin, session, and server-derived identi
       assert.equal(upstreamRequests.length, 0);
     });
 
+    await t.test("rejects a forged public host even when the browser origin is valid", async () => {
+      const response = await POST(
+        widgetRequest(consoleOrigin, "http://localhost:3000", "attacker.localhost:33000"),
+      );
+      assert.equal(response.status, 403);
+      assert.equal(upstreamRequests.length, 0);
+    });
+
     await t.test("requires the live strong ComplicatedAuth console session", async () => {
       authenticated = false;
       const response = await POST(widgetRequest());
@@ -78,7 +86,7 @@ test("widget bootstrap route enforces origin, session, and server-derived identi
     });
 
     await t.test("ignores browser identity input and keeps the widget secret server-only", async () => {
-      const response = await POST(widgetRequest());
+      const response = await POST(widgetRequest(consoleOrigin, "http://localhost:3000"));
       assert.equal(response.status, 201);
       assert.equal(response.headers.get("cache-control"), "no-store");
       assert.deepEqual(await response.json(), {

@@ -5,6 +5,13 @@ import type { Session } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+function logWidgetTokenFailure(
+  code: string,
+  details: Record<string, string | number | undefined> = {},
+): void {
+  console.warn("[dokosoko-widget-token] request rejected", { code, ...details });
+}
+
 type WidgetEnvironment = {
   apiURL: string;
   consoleOrigin: string;
@@ -50,6 +57,28 @@ function widgetEnvironment(): WidgetEnvironment {
   };
 }
 
+function externallyObservedOrigin(
+  request: Request,
+  expectedOrigin: string,
+): string | null {
+  const firstHeaderValue = (value: string | null): string | null =>
+    value?.split(",", 1)[0]?.trim() || null;
+  const requestURL = new URL(request.url);
+  const expectedURL = new URL(expectedOrigin);
+  const host =
+    firstHeaderValue(request.headers.get("x-forwarded-host")) ??
+    firstHeaderValue(request.headers.get("host")) ??
+    requestURL.host;
+  const protocol =
+    firstHeaderValue(request.headers.get("x-forwarded-proto")) ??
+    expectedURL.protocol.replace(/:$/, "");
+  try {
+    return new URL(`${protocol}://${host}`).origin;
+  } catch {
+    return null;
+  }
+}
+
 async function authenticatedSession(request: Request): Promise<Session | null> {
   const internalAPI = new URL(
     process.env.INTERNAL_API_URL ?? "http://localhost:8080",
@@ -69,15 +98,26 @@ export async function POST(request: Request): Promise<Response> {
   try {
     environment = widgetEnvironment();
   } catch {
+    logWidgetTokenFailure("widget_unavailable");
     return Response.json(
       { error: { code: "widget_unavailable", message: "The assistant is not configured." } },
       { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
+  const observedOrigin = externallyObservedOrigin(
+    request,
+    environment.consoleOrigin,
+  );
   if (
-    new URL(request.url).origin !== environment.consoleOrigin ||
+    observedOrigin !== environment.consoleOrigin ||
     request.headers.get("origin") !== environment.consoleOrigin
   ) {
+    logWidgetTokenFailure("origin_forbidden", {
+      requestURLOrigin: new URL(request.url).origin,
+      requestOrigin: request.headers.get("origin") ?? "missing",
+      observedOrigin: observedOrigin ?? "invalid",
+      expectedOrigin: environment.consoleOrigin,
+    });
     return Response.json(
       { error: { code: "origin_forbidden", message: "The request origin is not allowed." } },
       { status: 403, headers: { "Cache-Control": "no-store" } },
@@ -85,6 +125,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const session = await authenticatedSession(request);
   if (!session || session.authentication_assurance !== "strong") {
+    logWidgetTokenFailure("unauthenticated");
     return Response.json(
       { error: { code: "unauthenticated", message: "Authentication is required." } },
       { status: 401, headers: { "Cache-Control": "no-store" } },
@@ -112,6 +153,12 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     const requestId =
       error instanceof DokoSokoWidgetError ? error.requestId : undefined;
+    logWidgetTokenFailure("upstream_error", {
+      status: error instanceof DokoSokoWidgetError ? error.status : undefined,
+      upstreamCode:
+        error instanceof DokoSokoWidgetError ? error.code : undefined,
+      requestId,
+    });
     return Response.json(
       {
         error: {
