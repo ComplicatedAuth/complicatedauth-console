@@ -1090,6 +1090,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/access/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Evaluate an authenticated delegated identity
+         * @description Derives the customer identity, Tenant, audience, grants, policy version, and validity boundary exclusively from the live resource-bound OAuth access token. External platforms retain exact idempotent results for at least ten minutes and cannot supply or override identity in the request body.
+         */
+        post: operations["createAccessEvaluation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects": {
         parameters: {
             query?: never;
@@ -1308,6 +1328,26 @@ export interface paths {
          * @description Idempotently and permanently invalidates one credential version. Other active versions under the same service account continue to work, enabling safe overlap rotation.
          */
         delete: operations["revokeServiceCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept one consented external support submission
+         * @description Accepts at-least-once backend delivery from a trusted external platform, confines it to the service credential's Project, creates an encrypted Support Case, and retains exact idempotent results for at least 24 hours. Reusing a submission key with different content returns 409.
+         */
+        post: operations["createSupportSubmission"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2397,6 +2437,16 @@ export interface components {
             /** @enum {string|null} */
             denial_reason: "missing_capability" | "unknown_operation" | null;
         };
+        /** @description Deliberately empty input; all identity and authorization context comes from the authenticated resource-bound OAuth token. */
+        AccessEvaluationRequest: Record<string, never>;
+        /** @description Idempotent snapshot of current delegated grants whose lifetime never exceeds the authenticated OAuth access token. */
+        AccessEvaluation: {
+            id: string;
+            grants: string[];
+            /** @description Evaluation validity boundary; an external platform must not issue a longer-lived token. */
+            expires_at: components["schemas"]["Timestamp"];
+            policy_version?: string;
+        };
         /** @description Tenant and first-owner fields accepted during management-console signup. */
         SignupRequest: {
             /** Format: email */
@@ -2736,6 +2786,107 @@ export interface components {
          * @enum {string}
          */
         SupportCasePriority: "low" | "normal" | "high" | "urgent";
+        /** @description Durable external support-delivery envelope whose submission identifier also serves as its idempotency key. */
+        SupportSubmissionRequest: {
+            submission_id: string;
+            created_at: components["schemas"]["Timestamp"];
+            submission: components["schemas"]["ExternalSupportSubmission"];
+        };
+        /** @description Versioned, consented bug or feedback report together with trusted identity, product, and optional integration context. */
+        ExternalSupportSubmission: {
+            /** @enum {string} */
+            schema_version: "2026-08-20";
+            /** @enum {string} */
+            kind: "bug" | "feedback";
+            bug?: components["schemas"]["ExternalBugReport"];
+            feedback?: components["schemas"]["ExternalFeedbackReport"];
+            reporter: components["schemas"]["ExternalReporterContext"];
+            product: components["schemas"]["ExternalProductContext"];
+            integration?: components["schemas"]["ExternalIntegrationContext"];
+            /** @enum {string} */
+            source: "private_mcp";
+            confirmed_at: components["schemas"]["Timestamp"];
+            request_id: string;
+        };
+        /** @description Vendor-owned customer identity derived by the external platform from authenticated claims; contact fields require explicit allow_contact consent. */
+        ExternalReporterContext: {
+            principal: {
+                /** Format: uri */
+                issuer: string;
+                subject: string;
+            };
+            display_name?: string;
+            /** Format: email */
+            email?: string;
+            /** @description ComplicatedAuth Tenant identifier derived from the authenticated identity. */
+            external_customer_id?: string;
+            installation_id?: string;
+            allow_contact: boolean;
+        };
+        /** @description Immutable external product/catalog context attached to the support report for routing and diagnosis. */
+        ExternalProductContext: {
+            product_id: string;
+            product_name: string;
+            product_version_id?: string;
+            product_version?: string;
+            manifest_hash?: string;
+            /** Format: int64 */
+            catalog_revision?: number;
+            selection_source?: string;
+            environment_id?: string;
+            installation_id?: string;
+        };
+        /** @description Published external integration revision and immutable snapshot active when the report was confirmed. */
+        ExternalIntegrationContext: {
+            integration_id: string;
+            family_key: string;
+            version_key: string;
+            display_name: string;
+            lifecycle: string;
+            /** Format: int64 */
+            revision: number;
+            manifest_hash?: string;
+            /** @description Immutable published integration revision snapshot. */
+            snapshot?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Structured external bug report; kind `bug` requires this object and forbids feedback. */
+        ExternalBugReport: {
+            summary: string;
+            description: string;
+            reproduction_steps?: string[];
+            expected_behavior?: string;
+            actual_behavior?: string;
+            error_code?: string;
+            error_message?: string;
+            stack_trace?: string;
+            diagnostic_context?: string;
+            related_tool?: string;
+            integration_run_id?: string;
+            /** @enum {string} */
+            severity?: "unknown" | "low" | "medium" | "high" | "critical";
+            allow_contact?: boolean;
+        };
+        /** @description Structured external feedback report; kind `feedback` requires this object and forbids a bug report. */
+        ExternalFeedbackReport: {
+            message: string;
+            /** @enum {string} */
+            category?: "general" | "usability" | "documentation" | "performance" | "feature_request" | "other";
+            rating?: number;
+            related_tool?: string;
+            integration_run_id?: string;
+            allow_contact?: boolean;
+        };
+        /** @description Synchronous acknowledgement that identifies the created Support Case; unknown additive response fields may be ignored by external platforms. */
+        SupportSubmissionReceipt: {
+            id: string;
+            /** @enum {string} */
+            status: "accepted";
+            external_id?: string;
+            /** Format: uri */
+            external_url?: string;
+        };
         /** @description Durable attribution for the reported customer identity or actual workload/human actor. A service account may submit content on behalf of a same-Project user while remaining separately audit-attributed. */
         SupportReporter: {
             /** @enum {string} */
@@ -3097,6 +3248,12 @@ export interface components {
         TenantMemberWebAuthnCredentialUid: components["schemas"]["Uuid"];
         /** @description Opaque caller-generated key for one logical mutation. Reuse it only with identical inputs for documented retries; maximum length is 255 characters. */
         IdempotencyKey: string;
+        /** @description Stable for retries of one delegated-access evaluation and unique for the next evaluation. ComplicatedAuth retains the exact result for at least ten minutes. */
+        AccessEvaluationIdempotencyKey: string;
+        /** @description Stable external identifier for one logical support submission and its at-least-once delivery retries. */
+        SupportSubmissionIdempotencyKey: string;
+        /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
+        DokoSokoRequestId: string;
         /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
         IfMatch: string;
         /** @description OAuth Application identifier scoped to the authenticated Tenant. */
@@ -5040,6 +5197,41 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    createAccessEvaluation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Stable for retries of one delegated-access evaluation and unique for the next evaluation. ComplicatedAuth retains the exact result for at least ten minutes. */
+                "Idempotency-Key": components["parameters"]["AccessEvaluationIdempotencyKey"];
+                /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
+                "X-DokoSoko-Request-ID": components["parameters"]["DokoSokoRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessEvaluationRequest"];
+            };
+        };
+        responses: {
+            /** @description Current delegated grants and their explicit validity boundary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessEvaluation"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["OAuthError"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     listProjects: {
         parameters: {
             query?: {
@@ -5516,6 +5708,42 @@ export interface operations {
                 content?: never;
             };
             404: components["responses"]["Error"];
+        };
+    };
+    createSupportSubmission: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Stable external identifier for one logical support submission and its at-least-once delivery retries. */
+                "Idempotency-Key": components["parameters"]["SupportSubmissionIdempotencyKey"];
+                /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
+                "X-DokoSoko-Request-ID": components["parameters"]["DokoSokoRequestId"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportSubmissionRequest"];
+            };
+        };
+        responses: {
+            /** @description Submission accepted and converted into a Support Case. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSubmissionReceipt"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     listSupportCases: {

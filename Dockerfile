@@ -1,6 +1,7 @@
 FROM node:22-alpine AS dependencies
 WORKDIR /workspace
 COPY package.json package-lock.json ./
+COPY vendor ./vendor
 RUN npm ci
 
 FROM node:22-alpine AS build

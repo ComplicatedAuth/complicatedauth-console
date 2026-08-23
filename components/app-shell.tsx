@@ -19,6 +19,10 @@ import { useState } from "react";
 import { api, message, type Project, type Session } from "@/lib/api";
 import { BrandLogo } from "./brand-logo";
 import {
+  DokoSokoWidgetLauncher,
+  type DokoSokoWidgetConfig,
+} from "./dokosoko-widget-launcher";
+import {
   Dropdown,
   DropdownButton,
   DropdownDivider,
@@ -40,10 +44,12 @@ import { SidebarLayout } from "./ui/sidebar-layout";
 export function AppShell({
   session,
   projects,
+  dokosokoWidget,
   children,
 }: {
   session: Session;
   projects: Project[];
+  dokosokoWidget?: DokoSokoWidgetConfig;
   children: React.ReactNode;
 }) {
   const pathname = usePathname(),
@@ -214,6 +220,7 @@ export function AppShell({
         </div>
       )}
       {children}
+      {dokosokoWidget && <DokoSokoWidgetLauncher {...dokosokoWidget} />}
     </SidebarLayout>
   );
 }

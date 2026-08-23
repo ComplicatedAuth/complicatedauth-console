@@ -13,8 +13,16 @@ export default async function ProtectedLayout({
     redirect("/setup-security");
   }
   const projects = await serverProjects();
+  const widgetId = process.env.DOKOSOKO_WIDGET_ID?.trim();
+  const widgetHost = process.env.DOKOSOKO_WIDGET_HOST?.trim();
+  const dokosokoWidget =
+    widgetId && widgetHost ? { widgetId, host: widgetHost } : undefined;
   return (
-    <AppShell session={session} projects={projects}>
+    <AppShell
+      session={session}
+      projects={projects}
+      dokosokoWidget={dokosokoWidget}
+    >
       {children}
     </AppShell>
   );
