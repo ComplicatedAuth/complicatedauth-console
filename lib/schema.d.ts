@@ -1110,6 +1110,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/external-platform/credentials/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Authorize one external credential-management operation
+         * @description Confirms that the pairwise OAuth subject is still an active member of the service credential's Tenant before an external platform issues or revokes a subject-bound Project credential. The management credential requires external_credentials.manage; a denial is returned as allowed false.
+         */
+        post: operations["authorizeExternalCredentialOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/external-platform/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Issue one subject-bound external credential
+         * @description Issues one Project credential to an active pairwise OAuth subject and returns its secret exactly once. The child credential receives only requested scopes already held by the management service account and can never inherit external_credentials.manage. Empty scopes select every delegable scope. Exact idempotent retries replay the same response for 24 hours; at most two active versions overlap per subject and external API.
+         */
+        post: operations["issueExternalCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/external-platform/credentials/{credential_uid}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Subject-bound external credential identifier returned by the provider-side issue operation. */
+                credential_uid: components["parameters"]["ExternalCredentialUid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke one subject-bound external credential
+         * @description Idempotently revokes one credential only when it was issued under the authenticated management service account to the exact pairwise OAuth subject. Other overlapping versions remain active for safe cutover.
+         */
+        post: operations["revokeExternalCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects": {
         parameters: {
             query?: never;
@@ -2447,6 +2510,49 @@ export interface components {
             expires_at: components["schemas"]["Timestamp"];
             policy_version?: string;
         };
+        /** @description Provider-neutral authorization context sent before a subject-bound credential mutation. Identity values are verified against the management credential's Tenant and cannot select another Tenant. */
+        ExternalCredentialAuthorizationRequest: {
+            /** @enum {string} */
+            operation: "credentials.create" | "credentials.revoke";
+            subject: components["schemas"]["ExternalCredentialIdentifier"];
+            external_customer_id: components["schemas"]["ExternalCredentialIdentifier"];
+            installation_id: string;
+            deployment_id: components["schemas"]["ExternalCredentialIdentifier"];
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description Provider-side allow or deny result. Denial is deliberately represented as data so callers fail closed without treating policy as transport failure. */
+        ExternalCredentialAuthorizationResult: {
+            allowed: boolean;
+        };
+        /** @description Provider-neutral one-time credential issue or overlap-rotation request. access_instance_id must be empty because ComplicatedAuth credentials are scoped to the configured Project connection. */
+        ExternalCredentialIssueRequest: {
+            deployment_id: components["schemas"]["ExternalCredentialIdentifier"];
+            integration_id: components["schemas"]["ExternalCredentialIdentifier"];
+            environment_id: components["schemas"]["ExternalCredentialIdentifier"];
+            access_instance_id: string;
+            subject: components["schemas"]["ExternalCredentialIdentifier"];
+            scopes: string[];
+            idempotency_key: string;
+            /** @description Zero selects the provider default; nonzero values must be at least 300 seconds. */
+            ttl_seconds: number;
+            /** Format: uuid */
+            rotated_from_credential_id?: string;
+        };
+        /** @description One-time external credential material and provider identifier. The credential value must never be logged or persisted in browser storage. */
+        ExternalCredentialIssueResult: {
+            credential_id: components["schemas"]["Uuid"];
+            credential: string;
+            expires_at: components["schemas"]["Timestamp"];
+        };
+        /** @description Provider-neutral revoke context bound to the exact management connection and pairwise OAuth subject. */
+        ExternalCredentialRevokeRequest: {
+            deployment_id: components["schemas"]["ExternalCredentialIdentifier"];
+            subject: components["schemas"]["ExternalCredentialIdentifier"];
+        };
+        /** @description Trimmed opaque external-platform or pairwise-identity identifier. */
+        ExternalCredentialIdentifier: string;
         /** @description Tenant and first-owner fields accepted during management-console signup. */
         SignupRequest: {
             /** Format: email */
@@ -2710,7 +2816,7 @@ export interface components {
             scopes?: components["schemas"]["ServiceAccountScopes"];
         };
         /** @description Complete effective capability set read on every service-credential request. Values are stable public protocol names. */
-        ServiceAccountScopes: ("project_users.read" | "project_users.write" | "authentication.perform" | "sessions.manage" | "support_cases.read" | "support_cases.write")[];
+        ServiceAccountScopes: ("project_users.read" | "project_users.write" | "authentication.perform" | "sessions.manage" | "support_cases.read" | "support_cases.write" | "external_credentials.manage")[];
         /** @description Stable Project workload identity. Secret-bearing credential versions are nested resources and never appear in this representation. */
         ServiceAccount: {
             uid: components["schemas"]["Uuid"];
@@ -2745,6 +2851,11 @@ export interface components {
         ServiceCredential: {
             uid: components["schemas"]["Uuid"];
             service_account_uid: components["schemas"]["Uuid"];
+            /**
+             * @description Standard credentials are issued directly by a Tenant Member; external-platform credentials are subject-bound children issued through an authorized provider management connection.
+             * @enum {string}
+             */
+            kind: "standard" | "external_platform";
             name: string;
             prefix: string;
             fingerprint: string;
@@ -2792,23 +2903,28 @@ export interface components {
             created_at: components["schemas"]["Timestamp"];
             submission: components["schemas"]["ExternalSupportSubmission"];
         };
-        /** @description Versioned, consented bug or feedback report together with trusted identity, product, and optional integration context. */
+        /** @description Versioned, consented bug or feedback report together with trusted identity and provider-neutral external resource context. */
         ExternalSupportSubmission: {
             /** @enum {string} */
-            schema_version: "2026-08-20";
+            schema_version: "2026-08-25";
             /** @enum {string} */
             kind: "bug" | "feedback";
             bug?: components["schemas"]["ExternalBugReport"];
             feedback?: components["schemas"]["ExternalFeedbackReport"];
             reporter: components["schemas"]["ExternalReporterContext"];
-            product: components["schemas"]["ExternalProductContext"];
-            integration?: components["schemas"]["ExternalIntegrationContext"];
-            /** @enum {string} */
-            source: "private_mcp";
+            provider: components["schemas"]["ExternalProviderContext"];
+            resource: components["schemas"]["ExternalResourceContext"];
+            related_resources?: components["schemas"]["ExternalResourceContext"][];
+            /** @description Provider-defined delivery channel such as private_mcp, widget, or api. ComplicatedAuth does not require a particular external platform transport. */
+            channel: string;
+            /** @description Optional provider-owned metadata. Keys must be 1–64 characters and match `^[a-z][a-z0-9._-]*$`. Consumers must treat unknown keys as opaque; ComplicatedAuth preserves this object in the encrypted support attachment. */
+            extensions?: {
+                [key: string]: unknown;
+            };
             confirmed_at: components["schemas"]["Timestamp"];
             request_id: string;
         };
-        /** @description Vendor-owned customer identity derived by the external platform from authenticated claims; contact fields require explicit allow_contact consent. */
+        /** @description External projection of the customer identity derived from authenticated ComplicatedAuth claims; contact fields require explicit allow_contact consent. */
         ExternalReporterContext: {
             principal: {
                 /** Format: uri */
@@ -2823,33 +2939,24 @@ export interface components {
             installation_id?: string;
             allow_contact: boolean;
         };
-        /** @description Immutable external product/catalog context attached to the support report for routing and diagnosis. */
-        ExternalProductContext: {
-            product_id: string;
-            product_name: string;
-            product_version_id?: string;
-            product_version?: string;
-            manifest_hash?: string;
-            /** Format: int64 */
-            catalog_revision?: number;
-            selection_source?: string;
+        /** @description Stable identity of the external platform delivering the report. The key identifies an adapter profile without imposing that provider's catalog model on ComplicatedAuth. */
+        ExternalProviderContext: {
+            key: string;
+            name?: string;
+            version?: string;
+        };
+        /** @description Immutable provider-owned resource identity active when the report was confirmed. Resource types and identifiers are provider-defined. */
+        ExternalResourceContext: {
+            type: string;
+            id: string;
+            name: string;
+            version_id?: string;
+            version?: string;
             environment_id?: string;
             installation_id?: string;
-        };
-        /** @description Published external integration revision and immutable snapshot active when the report was confirmed. */
-        ExternalIntegrationContext: {
-            integration_id: string;
-            family_key: string;
-            version_key: string;
-            display_name: string;
-            lifecycle: string;
+            state?: string;
             /** Format: int64 */
-            revision: number;
-            manifest_hash?: string;
-            /** @description Immutable published integration revision snapshot. */
-            snapshot?: {
-                [key: string]: unknown;
-            };
+            revision?: number;
         };
         /** @description Structured external bug report; kind `bug` requires this object and forbids feedback. */
         ExternalBugReport: {
@@ -3276,6 +3383,8 @@ export interface components {
         ServiceAccountUid: components["schemas"]["Uuid"];
         /** @description Expiring service-account credential version identifier. */
         ServiceCredentialUid: components["schemas"]["Uuid"];
+        /** @description Subject-bound external credential identifier returned by the provider-side issue operation. */
+        ExternalCredentialUid: components["schemas"]["Uuid"];
         /** @description Support Case identifier constrained by the authenticated Tenant and, for a service credential, its exact Project. */
         SupportCaseUid: components["schemas"]["Uuid"];
         /** @description Encrypted attachment identifier inside one accessible Support Case. */
@@ -5230,6 +5339,92 @@ export interface operations {
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    authorizeExternalCredentialOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalCredentialAuthorizationRequest"];
+            };
+        };
+        responses: {
+            /** @description Current provider-side authorization result. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "private" | "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalCredentialAuthorizationResult"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    issueExternalCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalCredentialIssueRequest"];
+            };
+        };
+        responses: {
+            /** @description Subject-bound credential and one-time secret. */
+            201: {
+                headers: {
+                    Location: components["headers"]["ResourceLocation"];
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExternalCredentialIssueResult"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    revokeExternalCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Subject-bound external credential identifier returned by the provider-side issue operation. */
+                credential_uid: components["parameters"]["ExternalCredentialUid"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExternalCredentialRevokeRequest"];
+            };
+        };
+        responses: {
+            /** @description External credential is revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     listProjects: {

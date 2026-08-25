@@ -73,6 +73,11 @@ const scopes = [
     label: "Manage Support Cases",
     description: "Create cases and add public messages or attachments for this Project.",
   },
+  {
+    value: "external_credentials.manage",
+    label: "Issue external credentials",
+    description: "Allow a trusted external platform to issue subject-bound child keys. Child keys never inherit this scope.",
+  },
 ] as const;
 
 export function ServiceAccountsView({
@@ -242,7 +247,7 @@ export function ServiceAccountsView({
               <Input name="description" maxLength={500} placeholder="Customer login backend" />
             </Field>
           </div>
-          <ScopeFields defaultScopes={scopes.map((scope) => scope.value)} />
+          <ScopeFields defaultScopes={scopes.filter((scope) => scope.value !== "external_credentials.manage").map((scope) => scope.value)} />
           <div className="flex justify-end">
             <Button type="submit" color="coral" disabled={creating}>
               <PlusIcon />
@@ -256,7 +261,7 @@ export function ServiceAccountsView({
         {accounts.map((account) => {
           const versions = credentials[account.uid] ?? [];
           const activeVersions = versions.filter(
-            (credential) => credential.status === "active",
+            (credential) => credential.kind === "standard" && credential.status === "active",
           ).length;
           return (
             <Panel
@@ -304,6 +309,7 @@ export function ServiceAccountsView({
                     <TableRow key={credential.uid}>
                       <TableCell>
                         <div className="font-medium">{credential.name}</div>
+                        {credential.kind === "external_platform" && <Badge color="violet">External platform</Badge>}
                         <Mono className="mt-1 block text-zinc-500">{credential.prefix}••••</Mono>
                         <div className="mt-1 flex items-center gap-1 text-xs text-zinc-500">
                           <FingerPrintIcon className="size-3.5" />
