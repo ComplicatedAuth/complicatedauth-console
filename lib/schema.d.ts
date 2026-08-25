@@ -3252,8 +3252,8 @@ export interface components {
         AccessEvaluationIdempotencyKey: string;
         /** @description Stable external identifier for one logical support submission and its at-least-once delivery retries. */
         SupportSubmissionIdempotencyKey: string;
-        /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
-        DokoSokoRequestId: string;
+        /** @description Provider-neutral identifier for one external-platform HTTP attempt; retries use a new value and idempotency does not depend on it. */
+        ExternalRequestId: string;
         /** @description Strong ETag from the latest mutable resource representation. Weak, wildcard, multiple, and stale validators are rejected. */
         IfMatch: string;
         /** @description OAuth Application identifier scoped to the authenticated Tenant. */
@@ -5203,8 +5203,8 @@ export interface operations {
             header: {
                 /** @description Stable for retries of one delegated-access evaluation and unique for the next evaluation. ComplicatedAuth retains the exact result for at least ten minutes. */
                 "Idempotency-Key": components["parameters"]["AccessEvaluationIdempotencyKey"];
-                /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
-                "X-DokoSoko-Request-ID": components["parameters"]["DokoSokoRequestId"];
+                /** @description Provider-neutral identifier for one external-platform HTTP attempt; retries use a new value and idempotency does not depend on it. */
+                "X-External-Request-ID": components["parameters"]["ExternalRequestId"];
             };
             path?: never;
             cookie?: never;
@@ -5716,8 +5716,8 @@ export interface operations {
             header: {
                 /** @description Stable external identifier for one logical support submission and its at-least-once delivery retries. */
                 "Idempotency-Key": components["parameters"]["SupportSubmissionIdempotencyKey"];
-                /** @description Unique identifier for one DokoSoko HTTP attempt; retries use a new value and idempotency does not depend on it. */
-                "X-DokoSoko-Request-ID": components["parameters"]["DokoSokoRequestId"];
+                /** @description Provider-neutral identifier for one external-platform HTTP attempt; retries use a new value and idempotency does not depend on it. */
+                "X-External-Request-ID": components["parameters"]["ExternalRequestId"];
             };
             path?: never;
             cookie?: never;
