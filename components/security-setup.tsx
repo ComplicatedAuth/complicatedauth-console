@@ -1,19 +1,15 @@
 "use client";
 
-import { KeyIcon, ShieldCheckIcon } from "@heroicons/react/20/solid";
+import { ShieldCheckIcon } from "@heroicons/react/20/solid";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { AuthLayout } from "./auth-layout";
 import { BrandLogo } from "./brand-logo";
 import { Button } from "./ui/button";
-import { ErrorMessage, Field, Input, Label } from "./ui/field";
+import { ErrorMessage } from "./ui/field";
 import { Heading, Text } from "./ui/typography";
 import { message } from "@/lib/api";
-import {
-  defaultCredentialName,
-  enrollTenantMemberCredential,
-  type WebAuthnMode,
-} from "@/lib/console-webauthn";
+import { enrollTenantMemberCredential } from "@/lib/console-webauthn";
 
 function safeReturnTo(value: string | null) {
   return value?.startsWith("/") &&
@@ -26,23 +22,19 @@ function safeReturnTo(value: string | null) {
 export function SecuritySetup() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [name, setName] = useState("This device");
-  const [busy, setBusy] = useState<WebAuthnMode | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function enroll(mode: WebAuthnMode) {
-    setBusy(mode);
+  async function enroll() {
+    setBusy(true);
     setError("");
     try {
-      await enrollTenantMemberCredential({
-        name: name.trim() || defaultCredentialName(mode),
-        mode,
-      });
+      await enrollTenantMemberCredential();
       router.replace(safeReturnTo(searchParams.get("return_to")));
       router.refresh();
     } catch (caught) {
       setError(message(caught));
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -65,40 +57,18 @@ export function SecuritySetup() {
             <ErrorMessage>{error}</ErrorMessage>
           </div>
         )}
-        <Field>
-          <Label>Authenticator name</Label>
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={100}
-            required
-            autoComplete="off"
-          />
-          <Text>Use a label you will recognize in account security.</Text>
-        </Field>
         <Button
           color="coral"
-          disabled={busy !== null}
-          onClick={() => void enroll("passkey")}
+          disabled={busy}
+          onClick={() => void enroll()}
           className="w-full"
         >
           <ShieldCheckIcon />
-          {busy === "passkey" ? "Creating passkey…" : "Create passkey"}
-        </Button>
-        <Button
-          outline
-          disabled={busy !== null}
-          onClick={() => void enroll("security_key")}
-          className="w-full"
-        >
-          <KeyIcon />
-          {busy === "security_key"
-            ? "Waiting for security key…"
-            : "Register hardware security key"}
+          {busy ? "Creating passkey…" : "Create passkey"}
         </Button>
         <Text className="text-center">
-          Passkeys are the easiest default. Hardware keys request direct
-          attestation and are useful for higher-assurance demonstrations.
+          The authenticator name and icon are detected automatically after
+          registration.
         </Text>
       </div>
     </AuthLayout>

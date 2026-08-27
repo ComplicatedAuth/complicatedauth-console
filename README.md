@@ -8,7 +8,7 @@ npm run generate:api
 npm run dev
 ```
 
-The browser calls `/api/v1/...`; Next.js proxies that path to `INTERNAL_API_URL`. Signup and invitation acceptance receive a narrowly authorized bootstrap cookie. Password verification alone never creates a session; first enrollment or a passkey/security-key assertion establishes strong assurance before ordinary console routes are available. The one-time login-attempt client secret is held only in function memory.
+The browser calls `/api/v1/...`; Next.js proxies that path to `INTERNAL_API_URL`. Signup and invitation acceptance receive a narrowly authorized bootstrap cookie. Password verification alone never creates a session; first passkey enrollment or a passkey/legacy-security-key assertion establishes strong assurance before ordinary console routes are available. The one-time login-attempt client secret is held only in function memory.
 
 ## Browser acceptance test
 

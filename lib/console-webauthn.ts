@@ -69,12 +69,17 @@ export async function completeTenantMemberLogin({
   );
 
   if (progress.credential_setup_required) {
+    if (mode !== "passkey") {
+      throw new Error(
+        "No legacy security key is enrolled. Continue with passkey to complete setup.",
+      );
+    }
     const ceremony = await api<TenantMemberWebAuthnCeremony>(
       `${attemptPath}/webauthn-registration-ceremonies`,
       {
         method: "POST",
         headers,
-        body: JSON.stringify({ name: defaultCredentialName(mode), mode }),
+        body: JSON.stringify({ mode: "passkey" }),
       },
     );
     const credential = await createCredential(ceremony);
@@ -82,7 +87,7 @@ export async function completeTenantMemberLogin({
       method: "POST",
       headers,
       body: JSON.stringify({
-        mode,
+        mode: "passkey",
         ceremony_uid: ceremony.uid,
         credential,
       }),
@@ -101,29 +106,23 @@ export async function completeTenantMemberLogin({
   });
 }
 
-export async function enrollTenantMemberCredential({
-  name,
-  mode,
-}: {
-  name: string;
-  mode: WebAuthnMode;
-}): Promise<TenantMemberWebAuthnCredential> {
+export async function enrollTenantMemberCredential(): Promise<TenantMemberWebAuthnCredential> {
   const ceremony = await api<TenantMemberWebAuthnCeremony>(
     "/v1/console/webauthn-registration-ceremonies",
-    { method: "POST", body: JSON.stringify({ name, mode }) },
+    { method: "POST", body: JSON.stringify({ mode: "passkey" }) },
   );
   const credential = await createCredential(ceremony);
   return api<TenantMemberWebAuthnCredential>(
     "/v1/console/webauthn-registration-verifications",
     {
       method: "POST",
-      body: JSON.stringify({ mode, ceremony_uid: ceremony.uid, credential }),
+      body: JSON.stringify({
+        mode: "passkey",
+        ceremony_uid: ceremony.uid,
+        credential,
+      }),
     },
   );
-}
-
-export function defaultCredentialName(mode: WebAuthnMode) {
-  return mode === "passkey" ? "This device" : "Security key";
 }
 
 // These exported aliases make the protocol boundary explicit without leaking the

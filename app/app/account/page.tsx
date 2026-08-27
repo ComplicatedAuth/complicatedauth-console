@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import {
   CheckIcon,
   ComputerDesktopIcon,
@@ -32,30 +34,91 @@ import {
   type TenantMemberSession,
   type TenantMemberWebAuthnCredential,
 } from "@/lib/api";
+import { enrollTenantMemberCredential } from "@/lib/console-webauthn";
 import {
-  defaultCredentialName,
-  enrollTenantMemberCredential,
-  type WebAuthnMode,
-} from "@/lib/console-webauthn";
+  isGeneratedPasskeyName,
+  loadPasskeyAuthenticatorCatalog,
+  type PasskeyAuthenticatorCatalog,
+  type PasskeyAuthenticatorMetadata,
+} from "@/lib/passkey-authenticators";
 
 type Page<T> = { items: T[]; next_cursor?: string | null };
+
+function AuthenticatorIcon({
+  authenticator,
+}: {
+  authenticator?: PasskeyAuthenticatorMetadata;
+}) {
+  const light = authenticator?.icon_light ?? authenticator?.icon_dark;
+  const dark = authenticator?.icon_dark ?? authenticator?.icon_light;
+  return (
+    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-zinc-100 dark:bg-white/10">
+      {light && dark ? (
+        <>
+          <img
+            src={light}
+            alt=""
+            className="size-7 object-contain dark:hidden"
+          />
+          <img
+            src={dark}
+            alt=""
+            className="hidden size-7 object-contain dark:block"
+          />
+        </>
+      ) : (
+        <KeyIcon className="size-5 text-zinc-500" />
+      )}
+    </span>
+  );
+}
+
+function AuthenticatorIdentity({
+  credential,
+  catalog,
+}: {
+  credential: TenantMemberWebAuthnCredential;
+  catalog: PasskeyAuthenticatorCatalog;
+}) {
+  const authenticator = catalog[credential.aaguid.toLowerCase()];
+  const customName = !isGeneratedPasskeyName(credential.name)
+    ? credential.name
+    : "";
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <AuthenticatorIcon authenticator={authenticator} />
+      <div className="min-w-0">
+        <div className="font-medium">
+          {authenticator?.name ?? (customName || "Passkey")}
+        </div>
+        {authenticator && customName && customName !== authenticator.name && (
+          <div className="mt-0.5 text-xs text-zinc-500">{customName}</div>
+        )}
+        <Mono className="mt-1 block truncate text-xs text-zinc-500">
+          {credential.uid}
+        </Mono>
+      </div>
+    </div>
+  );
+}
 
 export default function AccountPage() {
   const router = useRouter();
   const [sessions, setSessions] = useState<TenantMemberSession[] | null>(null),
     [consents, setConsents] = useState<OAuthConsent[] | null>(null),
-    [credentials, setCredentials] = useState<TenantMemberWebAuthnCredential[] | null>(null),
+    [credentials, setCredentials] = useState<
+      TenantMemberWebAuthnCredential[] | null
+    >(null),
+    [authenticatorCatalog, setAuthenticatorCatalog] =
+      useState<PasskeyAuthenticatorCatalog>({}),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(""),
-    [enrollmentName, setEnrollmentName] = useState(""),
     [editingCredential, setEditingCredential] = useState(""),
     [credentialName, setCredentialName] = useState("");
   const load = useCallback(async () => {
     try {
       const [sessionPage, consentPage, credentialList] = await Promise.all([
-        api<Page<TenantMemberSession>>(
-          "/v1/console/auth/sessions?limit=100",
-        ),
+        api<Page<TenantMemberSession>>("/v1/console/auth/sessions?limit=100"),
         api<Page<OAuthConsent>>("/v1/oauth/consents?limit=100"),
         api<{ items: TenantMemberWebAuthnCredential[] }>(
           "/v1/console/webauthn-credentials",
@@ -74,16 +137,26 @@ export default function AccountPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    void loadPasskeyAuthenticatorCatalog()
+      .then((catalog) => {
+        if (active) setAuthenticatorCatalog(catalog);
+      })
+      .catch(() => {
+        // Catalog metadata is presentational; unknown or unavailable entries
+        // intentionally retain the generic passkey fallback.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  async function enrollCredential(mode: WebAuthnMode) {
-    setBusy(`enroll:${mode}`);
+  async function enrollCredential() {
+    setBusy("enroll:passkey");
     setError("");
     try {
-      await enrollTenantMemberCredential({
-        name: enrollmentName.trim() || defaultCredentialName(mode),
-        mode,
-      });
-      setEnrollmentName("");
+      await enrollTenantMemberCredential();
       await load();
     } catch (caught) {
       setError(message(caught));
@@ -175,32 +248,17 @@ export default function AccountPage() {
       )}
       <Panel
         className="mt-8"
-        title="Passkeys and security keys"
-        description="Keep at least one credential enrolled. Add a replacement before removing an old authenticator; removing one also revokes your other management sessions."
+        title="Passkeys"
+        description="Keep at least one passkey enrolled. Add a replacement before removing an old authenticator; removing one also revokes your other management sessions."
       >
-        <div className="grid gap-3 border-b border-zinc-950/10 p-5 sm:grid-cols-[1fr_auto_auto] dark:border-white/10">
-          <Input
-            aria-label="New authenticator name"
-            value={enrollmentName}
-            onChange={(event) => setEnrollmentName(event.target.value)}
-            maxLength={100}
-            placeholder="Authenticator name"
-          />
+        <div className="flex justify-end border-b border-zinc-950/10 p-5 dark:border-white/10">
           <Button
             outline
             disabled={busy !== ""}
-            onClick={() => void enrollCredential("passkey")}
+            onClick={() => void enrollCredential()}
           >
             <ShieldCheckIcon />
             {busy === "enroll:passkey" ? "Creating…" : "Add passkey"}
-          </Button>
-          <Button
-            outline
-            disabled={busy !== ""}
-            onClick={() => void enrollCredential("security_key")}
-          >
-            <KeyIcon />
-            {busy === "enroll:security_key" ? "Waiting…" : "Add security key"}
           </Button>
         </div>
         {credentials === null ? (
@@ -213,7 +271,9 @@ export default function AccountPage() {
                 <TableHeader>Type</TableHeader>
                 <TableHeader>Last used</TableHeader>
                 <TableHeader>Added</TableHeader>
-                <TableHeader><span className="sr-only">Actions</span></TableHeader>
+                <TableHeader>
+                  <span className="sr-only">Actions</span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -225,7 +285,9 @@ export default function AccountPage() {
                         <Input
                           aria-label="Authenticator name"
                           value={credentialName}
-                          onChange={(event) => setCredentialName(event.target.value)}
+                          onChange={(event) =>
+                            setCredentialName(event.target.value)
+                          }
                           maxLength={100}
                         />
                         <Button
@@ -246,24 +308,32 @@ export default function AccountPage() {
                         </Button>
                       </div>
                     ) : (
-                      <>
-                        <div className="font-medium">{credential.name}</div>
-                        <Mono className="mt-1 text-xs text-zinc-500">{credential.uid}</Mono>
-                      </>
+                      <AuthenticatorIdentity
+                        credential={credential}
+                        catalog={authenticatorCatalog}
+                      />
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge color={credential.kind === "passkey" ? "blue" : "zinc"}>
-                      {credential.kind === "passkey" ? "Passkey" : "Security key"}
+                    <Badge
+                      color={credential.kind === "passkey" ? "blue" : "zinc"}
+                    >
+                      {credential.kind === "passkey"
+                        ? "Passkey"
+                        : "Security key"}
                     </Badge>
-                    {credential.attested && <div className="mt-1 text-xs text-zinc-500">Attested</div>}
+                    {credential.attested && (
+                      <div className="mt-1 text-xs text-zinc-500">Attested</div>
+                    )}
                   </TableCell>
                   <TableCell>
                     {credential.last_used_at
                       ? new Date(credential.last_used_at).toLocaleString()
                       : "Never"}
                   </TableCell>
-                  <TableCell>{new Date(credential.created_at).toLocaleString()}</TableCell>
+                  <TableCell>
+                    {new Date(credential.created_at).toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-right">
                     {editingCredential !== credential.uid && (
                       <div className="flex justify-end gap-1">
@@ -280,7 +350,11 @@ export default function AccountPage() {
                         <Button
                           plain
                           disabled={busy !== "" || credentials.length === 1}
-                          title={credentials.length === 1 ? "Add a replacement before removing the final credential" : undefined}
+                          title={
+                            credentials.length === 1
+                              ? "Add a replacement before removing the final credential"
+                              : undefined
+                          }
                           onClick={() => void deleteCredential(credential)}
                         >
                           <TrashIcon /> Remove
@@ -304,7 +378,9 @@ export default function AccountPage() {
                 <TableHeader>Session</TableHeader>
                 <TableHeader>Last seen</TableHeader>
                 <TableHeader>Expires</TableHeader>
-                <TableHeader><span className="sr-only">Action</span></TableHeader>
+                <TableHeader>
+                  <span className="sr-only">Action</span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -313,14 +389,26 @@ export default function AccountPage() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <ComputerDesktopIcon className="size-5 text-zinc-500" />
-                      <span>{session.current ? "This session" : "Console session"}</span>
+                      <span>
+                        {session.current ? "This session" : "Console session"}
+                      </span>
                     </div>
-                    <Mono className="mt-1 text-xs text-zinc-500">{session.uid}</Mono>
+                    <Mono className="mt-1 text-xs text-zinc-500">
+                      {session.uid}
+                    </Mono>
                   </TableCell>
-                  <TableCell>{new Date(session.last_seen_at).toLocaleString()}</TableCell>
-                  <TableCell>{new Date(session.expires_at).toLocaleString()}</TableCell>
+                  <TableCell>
+                    {new Date(session.last_seen_at).toLocaleString()}
+                  </TableCell>
+                  <TableCell>
+                    {new Date(session.expires_at).toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button plain disabled={busy === session.uid} onClick={() => void revokeSession(session)}>
+                    <Button
+                      plain
+                      disabled={busy === session.uid}
+                      onClick={() => void revokeSession(session)}
+                    >
                       <TrashIcon /> Revoke
                     </Button>
                   </TableCell>
@@ -354,36 +442,58 @@ export default function AccountPage() {
                 <TableHeader>Audience</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Updated</TableHeader>
-                <TableHeader><span className="sr-only">Action</span></TableHeader>
+                <TableHeader>
+                  <span className="sr-only">Action</span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {consents.map((consent) => (
                 <TableRow key={consent.uid}>
                   <TableCell>
-                    <div className="font-medium">{consent.application_name}</div>
-                    <Mono className="mt-1 text-xs text-zinc-500">{consent.client_id}</Mono>
+                    <div className="font-medium">
+                      {consent.application_name}
+                    </div>
+                    <Mono className="mt-1 text-xs text-zinc-500">
+                      {consent.client_id}
+                    </Mono>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {consent.scopes.map((scope) => <Badge key={scope} color="blue">{scope}</Badge>)}
+                      {consent.scopes.map((scope) => (
+                        <Badge key={scope} color="blue">
+                          {scope}
+                        </Badge>
+                      ))}
                     </div>
                   </TableCell>
                   <TableCell>
                     {consent.resource_server_name ? (
                       <div>
-                        <div className="font-medium">{consent.resource_server_name}</div>
-                        <Mono className="mt-1 text-xs text-zinc-500">{consent.resource_server_identifier}</Mono>
+                        <div className="font-medium">
+                          {consent.resource_server_name}
+                        </div>
+                        <Mono className="mt-1 text-xs text-zinc-500">
+                          {consent.resource_server_identifier}
+                        </Mono>
                       </div>
                     ) : (
                       "UserInfo"
                     )}
                   </TableCell>
-                  <TableCell><StatusBadge value={consent.status} /></TableCell>
-                  <TableCell>{new Date(consent.updated_at).toLocaleString()}</TableCell>
+                  <TableCell>
+                    <StatusBadge value={consent.status} />
+                  </TableCell>
+                  <TableCell>
+                    {new Date(consent.updated_at).toLocaleString()}
+                  </TableCell>
                   <TableCell className="text-right">
                     {consent.status === "active" && (
-                      <Button plain disabled={busy === consent.uid} onClick={() => void revokeConsent(consent)}>
+                      <Button
+                        plain
+                        disabled={busy === consent.uid}
+                        onClick={() => void revokeConsent(consent)}
+                      >
                         <TrashIcon /> Revoke
                       </Button>
                     )}

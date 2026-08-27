@@ -45,7 +45,10 @@ test("complete console and RP password/passkey flow", async ({
 
   await page.getByRole("link", { name: "OAuth applications" }).click();
   await page.getByRole("button", { name: "Register application" }).click();
-  await page.getByRole("dialog").getByLabel("Name").fill("Acceptance OAuth Client");
+  await page
+    .getByRole("dialog")
+    .getByLabel("Name")
+    .fill("Acceptance OAuth Client");
   await page
     .getByRole("dialog")
     .getByLabel("Application type")
@@ -74,9 +77,11 @@ test("complete console and RP password/passkey flow", async ({
   await page.getByRole("dialog").getByLabel("Name").fill("Acceptance test");
   const createdSecretResponse = page.waitForResponse(
     (response) =>
-      response.url().endsWith(
-        `/v1/oauth/applications/${createdApplication.uid}/client-secrets`,
-      ) && response.request().method() === "POST",
+      response
+        .url()
+        .endsWith(
+          `/v1/oauth/applications/${createdApplication.uid}/client-secrets`,
+        ) && response.request().method() === "POST",
   );
   await page.getByRole("button", { name: "Create secret" }).click();
   const createdSecret = (await (await createdSecretResponse).json()) as {
@@ -88,9 +93,7 @@ test("complete console and RP password/passkey flow", async ({
   await page.getByRole("button", { name: "I have saved it" }).click();
 
   const verifier = randomBytes(32).toString("base64url");
-  const challenge = createHash("sha256")
-    .update(verifier)
-    .digest("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
   const state = randomUUID();
   const authorize = new URL("/oauth/authorize", backendURL);
   authorize.search = new URLSearchParams({
@@ -122,20 +125,17 @@ test("complete console and RP password/passkey flow", async ({
   const code = callback.searchParams.get("code");
   expect(code).toBeTruthy();
 
-  const tokenResponse = await request.post(
-    `${backendURL}/oauth/token`,
-    {
-      headers: {
-        Authorization: `Basic ${Buffer.from(`${createdApplication.client_id}:${createdSecret.secret}`).toString("base64")}`,
-      },
-      form: {
-        grant_type: "authorization_code",
-        code: code!,
-        redirect_uri: "http://localhost:4175/callback",
-        code_verifier: verifier,
-      },
+  const tokenResponse = await request.post(`${backendURL}/oauth/token`, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${createdApplication.client_id}:${createdSecret.secret}`).toString("base64")}`,
     },
-  );
+    form: {
+      grant_type: "authorization_code",
+      code: code!,
+      redirect_uri: "http://localhost:4175/callback",
+      code_verifier: verifier,
+    },
+  });
   expect(tokenResponse.status()).toBe(200);
   const tokens = (await tokenResponse.json()) as {
     access_token: string;
@@ -144,10 +144,9 @@ test("complete console and RP password/passkey flow", async ({
   };
   expect(tokens.token_type).toBe("Bearer");
   expect(tokens.id_token.split(".")).toHaveLength(3);
-  const userInfoResponse = await request.get(
-    `${backendURL}/oauth/userinfo`,
-    { headers: { Authorization: `Bearer ${tokens.access_token}` } },
-  );
+  const userInfoResponse = await request.get(`${backendURL}/oauth/userinfo`, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  });
   expect(userInfoResponse.status()).toBe(200);
   const userInfo = (await userInfoResponse.json()) as {
     sub: string;
@@ -159,9 +158,13 @@ test("complete console and RP password/passkey flow", async ({
   expect(userInfo.name).toBe("Alice Owner");
 
   await page.goto("/app/account");
-  const primaryCredentialRow = page
+  const passkeySection = page
+    .locator("section")
+    .filter({ hasText: "Passkeys" })
+    .first();
+  const primaryCredentialRow = passkeySection
     .getByRole("row")
-    .filter({ hasText: "This device" });
+    .filter({ has: page.getByRole("button", { name: "Rename" }) });
   await expect(primaryCredentialRow).toContainText("Passkey");
   await cdp.send("WebAuthn.setAutomaticPresenceSimulation", {
     authenticatorId,
@@ -172,7 +175,7 @@ test("complete console and RP password/passkey flow", async ({
     {
       options: {
         protocol: "ctap2",
-        transport: "usb",
+        transport: "internal",
         hasResidentKey: true,
         hasUserVerification: true,
         isUserVerified: true,
@@ -180,33 +183,31 @@ test("complete console and RP password/passkey flow", async ({
       },
     },
   );
-  await page.getByLabel("New authenticator name").fill("Backup security key");
   const backupCeremonyResponse = page.waitForResponse(
     (response) =>
-      response.url().endsWith(
-        "/v1/console/webauthn-registration-ceremonies",
-      ) && response.request().method() === "POST",
+      response.url().endsWith("/v1/console/webauthn-registration-ceremonies") &&
+      response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Add security key" }).click();
+  await page.getByRole("button", { name: "Add passkey" }).click();
   const backupCeremony = (await (await backupCeremonyResponse).json()) as {
     public_key: { excludeCredentials?: unknown[] };
   };
   expect(backupCeremony.public_key.excludeCredentials).toHaveLength(1);
-  const backupCredentialRow = page
+  const credentialRows = passkeySection
     .getByRole("row")
-    .filter({ hasText: "Backup security key" });
+    .filter({ has: page.getByRole("button", { name: "Rename" }) });
+  await expect(credentialRows).toHaveCount(2);
+  const backupCredentialRow = credentialRows.first();
   await expect(backupCredentialRow).toBeVisible();
-  await expect(backupCredentialRow).toContainText("Security key");
+  await expect(backupCredentialRow).toContainText("Passkey");
   await backupCredentialRow.getByRole("button", { name: "Rename" }).click();
   await page
     .getByRole("textbox", { name: "Authenticator name", exact: true })
-    .fill("Travel security key");
-  await page
-    .getByRole("button", { name: "Save authenticator name" })
-    .click();
-  const travelCredentialRow = page
+    .fill("Travel passkey");
+  await page.getByRole("button", { name: "Save authenticator name" }).click();
+  const travelCredentialRow = passkeySection
     .getByRole("row")
-    .filter({ hasText: "Travel security key" });
+    .filter({ hasText: "Travel passkey" });
   await expect(travelCredentialRow).toBeVisible();
   await travelCredentialRow.getByRole("button", { name: "Remove" }).click();
   await expect(travelCredentialRow).toHaveCount(0);
@@ -230,9 +231,7 @@ test("complete console and RP password/passkey flow", async ({
   expect(revokedUserInfoResponse.status()).toBe(401);
 
   await page.getByRole("link", { name: "Resource servers" }).click();
-  await page
-    .getByRole("button", { name: "Register resource server" })
-    .click();
+  await page.getByRole("button", { name: "Register resource server" }).click();
   await page.getByRole("dialog").getByLabel("Name").fill("Documents API");
   await page
     .getByRole("dialog")
@@ -243,9 +242,7 @@ test("complete console and RP password/passkey flow", async ({
       response.url().endsWith("/v1/resource-servers") &&
       response.request().method() === "POST",
   );
-  await page
-    .getByRole("button", { name: "Register resource server" })
-    .click();
+  await page.getByRole("button", { name: "Register resource server" }).click();
   const createdResourceServer = (await (
     await createdResourceServerResponse
   ).json()) as { uid: string; identifier: string };
@@ -268,9 +265,11 @@ test("complete console and RP password/passkey flow", async ({
       .fill(displayName);
     const responsePromise = page.waitForResponse(
       (response) =>
-        response.url().endsWith(
-          `/v1/resource-servers/${createdResourceServer.uid}/scopes`,
-        ) && response.request().method() === "POST",
+        response
+          .url()
+          .endsWith(
+            `/v1/resource-servers/${createdResourceServer.uid}/scopes`,
+          ) && response.request().method() === "POST",
     );
     await page.getByRole("button", { name: "Create scope" }).click();
     const response = await responsePromise;
@@ -303,9 +302,10 @@ test("complete console and RP password/passkey flow", async ({
     .check();
   const createdGrantResponse = page.waitForResponse(
     (response) =>
-      response.url().endsWith(
-        `/v1/oauth/applications/${createdApplication.uid}/grants`,
-      ) && response.request().method() === "POST",
+      response
+        .url()
+        .endsWith(`/v1/oauth/applications/${createdApplication.uid}/grants`) &&
+      response.request().method() === "POST",
   );
   await page.getByRole("button", { name: "Add grant" }).click();
   await createdGrantResponse;
@@ -426,19 +426,25 @@ test("complete console and RP password/passkey flow", async ({
   await page.getByRole("dialog").getByLabel("Email address").fill(invitedEmail);
   await page.getByRole("dialog").getByLabel("Role").selectOption("viewer");
   await page.getByRole("button", { name: "Send invitation" }).click();
-  await expect(page.getByText("The acceptance link was emailed to the new member.")).toBeVisible();
+  await expect(
+    page.getByText("The acceptance link was emailed to the new member."),
+  ).toBeVisible();
   await expect(page.getByText(invitedEmail)).toBeVisible();
   await page.getByRole("link", { name: "Create project" }).click();
 
   await page.getByLabel("Project name").fill("Acceptance App");
   await page.getByLabel("RP ID").fill("customer.localhost");
   await page.getByLabel("RP name").fill("Acceptance App");
-  await page.getByLabel("Initial Origin").fill("http://customer.localhost:4174");
+  await page
+    .getByLabel("Initial Origin")
+    .fill("http://customer.localhost:4174");
   await page.getByRole("button", { name: "Create Project" }).click();
   await expect(page).toHaveURL(/\/app\/projects\/[0-9a-f-]+$/);
   const projectUID = new URL(page.url()).pathname.split("/").at(-1)!;
 
-  await page.getByRole("link", { name: "Service accounts", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Service accounts", exact: true })
+    .click();
   await page.getByLabel("Workload name").fill("Acceptance RP");
   const createdAccountResponse = page.waitForResponse(
     (response) =>
@@ -453,19 +459,30 @@ test("complete console and RP password/passkey flow", async ({
   await page.getByLabel("Deployment label").fill("Acceptance credential");
   const createdCredentialResponse = page.waitForResponse(
     (response) =>
-      response.url().endsWith(
-        `/v1/projects/${projectUID}/service-accounts/${createdAccount.uid}/credentials`,
-      ) && response.request().method() === "POST",
+      response
+        .url()
+        .endsWith(
+          `/v1/projects/${projectUID}/service-accounts/${createdAccount.uid}/credentials`,
+        ) && response.request().method() === "POST",
   );
-  await page.getByRole("dialog").getByRole("button", { name: "Issue credential" }).click();
-  const createdCredential = (await (await createdCredentialResponse).json()) as {
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Issue credential" })
+    .click();
+  const createdCredential = (await (
+    await createdCredentialResponse
+  ).json()) as {
     uid: string;
     secret: string;
   };
   const serviceCredential = createdCredential.secret;
-  await expect(page.locator(".secret-value code")).toHaveText(serviceCredential);
+  await expect(page.locator(".secret-value code")).toHaveText(
+    serviceCredential,
+  );
   expect(serviceCredential).toMatch(/^ca_sk_test_/);
-  await page.getByRole("button", { name: "I have saved the credential" }).click();
+  await page
+    .getByRole("button", { name: "I have saved the credential" })
+    .click();
   await expect(
     page.getByRole("dialog", { name: "Copy this service credential now" }),
   ).toHaveCount(0);
@@ -493,15 +510,21 @@ test("complete console and RP password/passkey flow", async ({
     .filter({ hasText: "Acceptance login issue" });
   await expect(supportRow).toContainText("high");
   await supportRow.getByRole("link", { name: "Open" }).click();
-  await expect(page.getByRole("heading", { name: "Acceptance login issue" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Acceptance login issue" }),
+  ).toBeVisible();
   await page.getByLabel("Status").selectOption("in_progress");
   await page.getByLabel("Assignee").selectOption({ label: "Alice Owner" });
   await page.getByRole("button", { name: "Save triage" }).click();
   await expect(page.getByText("in_progress", { exact: true })).toBeVisible();
-  await page.getByLabel("Reply or note").fill("Check the redirect state before replying.");
+  await page
+    .getByLabel("Reply or note")
+    .fill("Check the redirect state before replying.");
   await page.getByLabel("Visibility").selectOption("internal");
   await page.getByRole("button", { name: "Add message" }).click();
-  await expect(page.getByText("Check the redirect state before replying.")).toBeVisible();
+  await expect(
+    page.getByText("Check the redirect state before replying."),
+  ).toBeVisible();
   await page.getByLabel("Upload file").setInputFiles({
     name: "acceptance.txt",
     mimeType: "text/plain",
@@ -511,7 +534,9 @@ test("complete console and RP password/passkey flow", async ({
   await expect(page.getByText("acceptance.txt")).toBeVisible();
   await page.getByLabel("Provider").fill("example_tracker");
   await page.getByLabel("External ID").fill("BUG-42");
-  await page.getByLabel("Safe URL").fill("https://tracker.example/cases/BUG-42");
+  await page
+    .getByLabel("Safe URL")
+    .fill("https://tracker.example/cases/BUG-42");
   await page.getByLabel("Label").fill("Engineering issue");
   await page.getByRole("button", { name: "Link record" }).click();
   await expect(page.getByText("Engineering issue")).toBeVisible();
@@ -556,7 +581,9 @@ test("complete console and RP password/passkey flow", async ({
   await expect
     .poll(async () =>
       (
-        await request.get("http://customer.localhost:4174/health").catch(() => null)
+        await request
+          .get("http://customer.localhost:4174/health")
+          .catch(() => null)
       )?.status(),
     )
     .toBe(200);
@@ -571,8 +598,12 @@ test("complete console and RP password/passkey flow", async ({
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByTestId("status")).toHaveText("Logged out");
   await page.getByRole("button", { name: "Passkey login" }).click();
-  await expect(page.getByTestId("status")).toHaveText("Password + passkey session active");
-  const rpSession = await page.request.get("http://customer.localhost:4174/session");
+  await expect(page.getByTestId("status")).toHaveText(
+    "Password + passkey session active",
+  );
+  const rpSession = await page.request.get(
+    "http://customer.localhost:4174/session",
+  );
   expect((await rpSession.json()).session_reference).toBeUndefined();
 
   await page.goto(`/app/projects/${projectUID}/settings`);
@@ -590,9 +621,7 @@ test("complete console and RP password/passkey flow", async ({
   await expect(page).toHaveURL(
     new RegExp(`/app/projects/${projectUID}/settings#origins$`),
   );
-  await page
-    .getByLabel("Add an Origin")
-    .fill("http://customer.localhost:4180");
+  await page.getByLabel("Add an Origin").fill("http://customer.localhost:4180");
   await page.getByRole("button", { name: "Add Origin" }).click();
   await expect(page.getByText("http://customer.localhost:4180")).toBeVisible();
   await page
@@ -603,12 +632,21 @@ test("complete console and RP password/passkey flow", async ({
     page.getByText("http://customer.localhost:4180", { exact: true }),
   ).toBeHidden();
 
-  await page.getByRole("link", { name: "Service accounts", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Service accounts", exact: true })
+    .click();
   await page.getByRole("button", { name: "Issue credential" }).click();
   await page.getByLabel("Deployment label").fill("Replacement credential");
-  await page.getByRole("dialog").getByRole("button", { name: "Issue credential" }).click();
-  await expect(page.getByText("Copy this service credential now")).toBeVisible();
-  await page.getByRole("button", { name: "I have saved the credential" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Issue credential" })
+    .click();
+  await expect(
+    page.getByText("Copy this service credential now"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "I have saved the credential" })
+    .click();
   await expect(
     page.getByRole("dialog", { name: "Copy this service credential now" }),
   ).toHaveCount(0);

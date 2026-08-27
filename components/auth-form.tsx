@@ -39,9 +39,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           method: "POST",
           body: JSON.stringify(values),
         });
-        router.push(
-          "/setup-security?return_to=%2Fapp%2Fprojects%2Fnew",
-        );
+        router.push("/setup-security?return_to=%2Fapp%2Fprojects%2Fnew");
         router.refresh();
         return;
       }
@@ -80,7 +78,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           <Text className="mt-2 text-base/7">
             {signup
               ? "Your Tenant and owner account are created together. We’ll email a separate ownership-verification link."
-              : "Verify your password, then use an enrolled passkey or security key. A password alone never creates a management session."}
+              : "Verify your password, then use an enrolled passkey or legacy security key. A password alone never creates a management session."}
           </Text>
         </div>
         {error && (
@@ -159,7 +157,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         </Field>
         {!signup && (
           <div className="-mt-2 text-right">
-            <Link className="text-sm font-semibold text-[#c93324] hover:underline dark:text-[#ff8879]" href="/forgot-password">
+            <Link
+              className="text-sm font-semibold text-[#c93324] hover:underline dark:text-[#ff8879]"
+              href="/forgot-password"
+            >
               Forgot password?
             </Link>
           </div>
@@ -191,7 +192,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             value="security_key"
             className="w-full"
           >
-            Use a security key
+            Use a legacy security key
           </Button>
         )}
         <Text className="text-center">

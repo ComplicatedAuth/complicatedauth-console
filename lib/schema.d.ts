@@ -299,7 +299,7 @@ export interface paths {
         put?: never;
         /**
          * Start initial Tenant Member WebAuthn enrollment
-         * @description Creates a registration ceremony only after password verification and only while the Tenant Member has no WebAuthn credential. Passkeys require discoverability and user verification; security keys additionally request direct attestation.
+         * @description Creates a platform-passkey registration ceremony only after password verification and only while the Tenant Member has no WebAuthn credential. The passkey must be discoverable and user verified. Its display metadata is derived from the verified authenticator AAGUID, so callers do not supply a name.
          */
         post: operations["createInitialTenantMemberWebAuthnRegistrationCeremony"];
         delete?: never;
@@ -528,7 +528,7 @@ export interface paths {
         put?: never;
         /**
          * Start management WebAuthn credential enrollment
-         * @description Creates a five-minute registration ceremony for the current Tenant Member. A bootstrap session may use it only to establish the first credential; a strong session may add a replacement before deleting an old credential. Already-enrolled credential identifiers are supplied in `excludeCredentials`, preventing the same authenticator from silently replacing a discoverable credential that the server still trusts. Ten credentials are allowed at most.
+         * @description Creates a five-minute platform-passkey registration ceremony for the current Tenant Member. A bootstrap session may use it only to establish the first credential; a strong session may add a replacement before deleting an old credential. Already-enrolled credential identifiers are supplied in `excludeCredentials`, preventing the same authenticator from silently replacing a discoverable credential that the server still trusts. Display metadata is derived from the verified authenticator AAGUID, and ten credentials are allowed at most.
          */
         post: operations["createTenantMemberWebAuthnRegistrationCeremony"];
         delete?: never;
@@ -2584,11 +2584,10 @@ export interface components {
             /** @enum {string} */
             mode: "passkey" | "security_key" | "hybrid";
         };
-        /** @description Human label and authenticator category for a management WebAuthn credential. */
+        /** @description Fixed authenticator category for management passkey enrollment. The server derives authenticator identity from the verified AAGUID. */
         TenantMemberWebAuthnRegistrationRequest: {
-            name: string;
             /** @enum {string} */
-            mode: "passkey" | "security_key";
+            mode: "passkey";
         };
         /** @description Five-minute, single-use management WebAuthn ceremony and browser-compatible PublicKeyCredential options. */
         TenantMemberWebAuthnCeremony: {
@@ -2607,10 +2606,12 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description Safe, versioned metadata for one management passkey or attested security key. Authenticator identifiers, public keys, and counters remain internal. */
+        /** @description Safe, versioned metadata for one management passkey or legacy security key. The AAGUID identifies display metadata only; public keys, credential identifiers, and counters remain internal. */
         TenantMemberWebAuthnCredential: {
             uid: components["schemas"]["Uuid"];
             name: string;
+            /** Format: uuid */
+            aaguid: string;
             /** @enum {string} */
             kind: "passkey" | "security_key";
             attested: boolean;
